@@ -1,0 +1,43 @@
+version: '3.8'
+
+services:
+  # 后端服务
+  backend:
+    build:
+      context: ./backend
+      dockerfile: Dockerfile
+    container_name: beone-backend
+    ports:
+      - "5000:5000"
+    volumes:
+      - ./backend/uploads:/app/uploads
+      - ./backend/database.db:/app/database.db
+    environment:
+      - NODE_ENV=production
+      - PORT=5000
+      - JWT_SECRET=your_jwt_secret_change_in_production
+    restart: unless-stopped
+    networks:
+      - beone-network
+
+  # 前端服务
+  frontend:
+    build:
+      context: ./frontend
+      dockerfile: Dockerfile
+    container_name: beone-frontend
+    ports:
+      - "80:80"
+    depends_on:
+      - backend
+    restart: unless-stopped
+    networks:
+      - beone-network
+
+networks:
+  beone-network:
+    driver: bridge
+
+volumes:
+  uploads:
+  database:

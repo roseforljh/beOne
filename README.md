@@ -36,7 +36,41 @@
 - Framer Motion（动画）
 - Axios
 
-## 📦 安装
+## 📦 快速部署（推荐）
+
+### 使用 Docker（一键部署）
+
+**环境要求：**
+- Docker
+- Docker Compose
+
+**部署步骤：**
+
+```bash
+# 1. 克隆项目
+git clone https://github.com/roseforljh/beOne.git
+cd beOne
+
+# 2. 一键启动
+docker-compose up -d
+
+# 3. 访问应用
+# 前端：http://your-ip （默认 80 端口，无需指定）
+# 后端 API：http://your-ip:5000
+```
+
+**或使用快速脚本：**
+
+```bash
+chmod +x deploy.sh
+./deploy.sh
+```
+
+详细部署文档请查看：[DEPLOY.md](DEPLOY.md)
+
+---
+
+## 📦 手动安装
 
 ### 环境要求
 - Node.js >= 16.0.0
@@ -45,7 +79,7 @@
 ### 1. 克隆项目
 
 ```bash
-git clone <repository-url>
+git clone https://github.com/roseforljh/beOne.git
 cd beOne
 ```
 
