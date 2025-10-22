@@ -14,7 +14,7 @@ RUN npm ci --only=production
 COPY . .
 
 # 创建必要的目录
-RUN mkdir -p uploads/chunks uploads/files uploads/thumbs
+RUN mkdir -p uploads/chunks uploads/files uploads/thumbs data
 
 # 暴露端口
 EXPOSE 5000

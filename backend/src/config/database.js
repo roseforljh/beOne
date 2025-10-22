@@ -7,7 +7,14 @@ import fs from 'fs';
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
 
-const dbPath = path.join(__dirname, '../../database.db');
+// 支持通过环境变量指定数据库路径
+const dbPath = process.env.DB_PATH || path.join(__dirname, '../../database.db');
+
+// 确保数据库目录存在
+const dbDir = path.dirname(dbPath);
+if (!fs.existsSync(dbDir)) {
+  fs.mkdirSync(dbDir, { recursive: true });
+}
 
 // 创建数据库连接
 export const db = new sqlite3.Database(dbPath, (err) => {

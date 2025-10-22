@@ -15,16 +15,21 @@ git clone https://github.com/roseforljh/beOne.git
 cd beOne
 ```
 
-2. **启动服务**
+2. **创建数据目录**
+```bash
+mkdir -p data/uploads/chunks data/uploads/files data/uploads/thumbs
+```
+
+3. **启动服务**
 ```bash
 docker-compose up -d
 ```
 
-3. **访问应用**
+4. **访问应用**
 - 前端：http://your-vps-ip （默认 80 端口）
 - 后端 API：http://your-vps-ip:5000
 
-4. **默认账号**
+5. **默认账号**
 - 用户名：root
 - 密码：123456
 
@@ -65,13 +70,13 @@ docker-compose ps
 ### 数据持久化
 
 数据会自动保存在以下位置：
-- 上传的文件：`./backend/uploads`
-- 数据库：`./backend/database.db`
+- 上传的文件：`./data/uploads`
+- 数据库：`./data/database.db`
 
 ### 端口配置
 
 默认端口：
-- 前端：80
+- 前端：80（HTTP 默认端口，访问时无需指定）
 - 后端：5000
 
 如需修改端口，编辑 `docker-compose.yml`：
@@ -79,11 +84,13 @@ docker-compose ps
 services:
   frontend:
     ports:
-      - "8080:80"  # 修改为 8080
+      - "8080:80"  # 修改为 8080，访问时需要 http://your-ip:8080
   backend:
     ports:
-      - "5001:5000"  # 修改为 5001
+      - "5001:5000"  # 修改为 5001，访问时需要 http://your-ip:5001
 ```
+
+**注意**：如果修改前端端口为非 80，访问时需要加上端口号，例如 `http://your-ip:8080`
 
 ### 环境变量
 
@@ -133,7 +140,7 @@ netstat -tulpn | grep :5000
 **数据库错误**
 ```bash
 # 删除旧数据库重新初始化
-rm backend/database.db
+rm data/database.db
 docker-compose restart backend
 ```
 
@@ -151,10 +158,10 @@ docker-compose up -d --build
 
 ```bash
 # 备份数据库和文件
-tar -czf backup-$(date +%Y%m%d).tar.gz backend/database.db backend/uploads/
+tar -czf backup-$(date +%Y%m%d).tar.gz data/
 
 # 恢复备份
-tar -xzf backup-20250122.tar.gz
+tar -xzf backup-20251022.tar.gz
 ```
 
 ## 生产环境建议
