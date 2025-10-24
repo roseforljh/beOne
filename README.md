@@ -52,13 +52,10 @@
 git clone https://github.com/roseforljh/beOne.git
 cd beOne
 
-# 2. 创建数据目录
-mkdir -p data/uploads/chunks data/uploads/files data/uploads/thumbs
-
-# 3. 一键启动
+# 2. 一键启动
 docker-compose up -d
 
-# 4. 访问应用
+# 3. 访问应用
 # 前端：http://your-ip （默认 80 端口，无需指定）
 # 后端 API：http://your-ip:5000
 ```

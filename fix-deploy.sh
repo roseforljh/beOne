@@ -2,17 +2,9 @@
 
 echo "修复 Docker 部署配置..."
 
-# 停止现有容器
+# 停止现有容器并删除数据卷
 echo "停止现有容器..."
-docker-compose down
-
-# 创建数据目录
-echo "创建数据目录..."
-mkdir -p data/uploads/chunks data/uploads/files data/uploads/thumbs
-
-# 设置权限
-echo "设置目录权限..."
-chmod -R 777 data
+docker-compose down -v
 
 # 重新构建并启动
 echo "重新构建并启动服务..."

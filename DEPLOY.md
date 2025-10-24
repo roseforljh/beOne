@@ -15,21 +15,16 @@ git clone https://github.com/roseforljh/beOne.git
 cd beOne
 ```
 
-2. **创建数据目录**
-```bash
-mkdir -p data/uploads/chunks data/uploads/files data/uploads/thumbs
-```
-
-3. **启动服务**
+2. **启动服务**
 ```bash
 docker-compose up -d
 ```
 
-4. **访问应用**
+3. **访问应用**
 - 前端：http://your-vps-ip （默认 80 端口）
 - 后端 API：http://your-vps-ip:5000
 
-5. **默认账号**
+4. **默认账号**
 - 用户名：root
 - 密码：123456
 
@@ -69,9 +64,15 @@ docker-compose ps
 
 ### 数据持久化
 
-数据会自动保存在以下位置：
-- 上传的文件：`./data/uploads`
-- 数据库：`./data/database.db`
+数据会自动保存在 Docker volumes 中：
+- 上传的文件：`uploads` volume
+- 数据库：`database` volume
+
+查看数据卷位置：
+```bash
+docker volume inspect beone_uploads
+docker volume inspect beone_database
+```
 
 ### 端口配置
 
@@ -139,9 +140,9 @@ netstat -tulpn | grep :5000
 
 **数据库错误**
 ```bash
-# 删除旧数据库重新初始化
-rm data/database.db
-docker-compose restart backend
+# 删除数据卷重新初始化
+docker-compose down -v
+docker-compose up -d
 ```
 
 ### 更新应用
@@ -157,11 +158,13 @@ docker-compose up -d --build
 ### 备份数据
 
 ```bash
-# 备份数据库和文件
-tar -czf backup-$(date +%Y%m%d).tar.gz data/
+# 备份数据卷
+docker run --rm -v beone_database:/data -v $(pwd):/backup alpine tar czf /backup/database-backup.tar.gz -C /data .
+docker run --rm -v beone_uploads:/data -v $(pwd):/backup alpine tar czf /backup/uploads-backup.tar.gz -C /data .
 
 # 恢复备份
-tar -xzf backup-20251022.tar.gz
+docker run --rm -v beone_database:/data -v $(pwd):/backup alpine tar xzf /backup/database-backup.tar.gz -C /data
+docker run --rm -v beone_uploads:/data -v $(pwd):/backup alpine tar xzf /backup/uploads-backup.tar.gz -C /data
 ```
 
 ## 生产环境建议

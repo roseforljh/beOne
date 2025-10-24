@@ -7,15 +7,21 @@ export const connectSocket = (token) => {
     return socket;
   }
 
-  // 自动检测主机地址，支持手机访问
-  const host = window.location.hostname;
-  const socketUrl = `http://${host}:5000`;
+  // 使用相对路径连接，自动适配 HTTP/HTTPS 和 nginx 代理
+  // 在生产环境中通过 nginx 代理，开发环境直连 5000 端口
+  const isDevelopment = window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1';
+  const socketUrl = isDevelopment 
+    ? `http://${window.location.hostname}:5000`
+    : window.location.origin;
 
   socket = io(socketUrl, {
     auth: {
       token
     },
-    transports: ['websocket', 'polling']
+    transports: ['websocket', 'polling'],
+    reconnection: true,
+    reconnectionDelay: 1000,
+    reconnectionAttempts: 5
   });
 
   socket.on('connect', () => {
