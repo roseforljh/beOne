@@ -56,7 +56,6 @@ export default function Chat() {
   useEffect(() => {
     // 加载历史消息
     const loadMessages = async () => {
-      setLoading(true);
       try {
         const response = await axios.get('/api/messages');
         setMessages(response.data.messages);
@@ -66,8 +65,6 @@ export default function Chat() {
       setLoading(false);
     };
 
-    loadMessages();
-
     // 连接 Socket
     const socket = connectSocket(token);
 
@@ -76,7 +73,7 @@ export default function Chat() {
       console.log('Socket 连接成功，会话ID:', socket.id);
       setCurrentSessionId(socket.id);
       
-      // 重新加载消息，确保 session_id 正确
+      // 只在首次连接时加载消息
       loadMessages();
     };
 
