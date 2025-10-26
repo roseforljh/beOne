@@ -35,12 +35,22 @@ export default function Chat() {
   }, []);
 
   // 滚动到底部
-  const scrollToBottom = () => {
-    messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
+  const scrollToBottom = (instant = false) => {
+    messagesEndRef.current?.scrollIntoView({ behavior: instant ? 'instant' : 'smooth' });
   };
 
+  // 首次加载标记
+  const isFirstLoad = useRef(true);
+
   useEffect(() => {
-    scrollToBottom();
+    // 首次加载时立即滚动到底部，不使用动画
+    if (isFirstLoad.current && messages.length > 0) {
+      scrollToBottom(true);
+      isFirstLoad.current = false;
+    } else if (!isFirstLoad.current) {
+      // 后续新消息使用平滑滚动
+      scrollToBottom(false);
+    }
   }, [messages]);
 
   useEffect(() => {
@@ -179,6 +189,22 @@ export default function Chat() {
     setMessages((prev) => prev.filter(msg => msg.id !== messageId));
   };
 
+  // 清空聊天记录
+  const handleClearMessages = async () => {
+    if (!window.confirm('确定要清空所有聊天记录吗？此操作不可恢复！')) {
+      return;
+    }
+
+    try {
+      await axios.delete('/api/messages');
+      setMessages([]);
+      alert('聊天记录已清空');
+    } catch (error) {
+      console.error('清空失败:', error);
+      alert('清空失败，请重试');
+    }
+  };
+
   return (
     <div className="min-h-screen bg-taiji-gray-100 flex flex-col">
       <Header />
@@ -197,6 +223,22 @@ export default function Chat() {
                 </p>
               </div>
             </div>
+            
+            {/* 清空按钮 */}
+            {messages.length > 0 && (
+              <motion.button
+                whileHover={{ scale: 1.05 }}
+                whileTap={{ scale: 0.95 }}
+                onClick={handleClearMessages}
+                className="px-3 py-1.5 md:px-4 md:py-2 bg-red-500 hover:bg-red-600 text-white text-xs md:text-sm rounded-lg transition-colors flex items-center gap-1.5"
+                title="清空聊天记录"
+              >
+                <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
+                </svg>
+                <span className="hidden md:inline">清空</span>
+              </motion.button>
+            )}
           </div>
 
           {/* 消息列表 */}

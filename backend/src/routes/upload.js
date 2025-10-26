@@ -20,7 +20,12 @@ const storage = multer.diskStorage({
   }
 });
 
-const upload = multer({ storage });
+const upload = multer({ 
+  storage,
+  limits: {
+    fileSize: 50 * 1024 * 1024 * 1024 // 50GB per chunk
+  }
+});
 
 // 所有上传路由需要认证
 router.use(authenticateToken);
