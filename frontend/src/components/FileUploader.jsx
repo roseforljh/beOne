@@ -175,37 +175,17 @@ export default function FileUploader({ onUploadComplete }) {
                 </button>
               </div>
 
-              {/* 移动端文件类型选择 - 使用原生选择 */}
-              <div className="md:hidden flex flex-wrap gap-2 justify-center">
+              {/* 移动端选择文件按钮 */}
+              <div className="md:hidden">
                 <button
-                  className="px-4 py-2 bg-taiji-black text-taiji-white rounded-lg text-sm font-medium"
-                  onClick={() => {
-                    setCurrentAccept('image/*');
-                    setCurrentCapture('environment');
-                    fileInputRef.current?.click();
-                  }}
-                >
-                  📷 拍照
-                </button>
-                <button
-                  className="px-4 py-2 bg-taiji-black text-taiji-white rounded-lg text-sm font-medium"
-                  onClick={() => {
-                    setCurrentAccept('image/*');
-                    setCurrentCapture(null);
-                    fileInputRef.current?.click();
-                  }}
-                >
-                  🖼️ 相册
-                </button>
-                <button
-                  className="px-4 py-2 bg-taiji-black text-taiji-white rounded-lg text-sm font-medium"
+                  className="btn-primary text-sm md:text-base"
                   onClick={() => {
                     setCurrentAccept('*/*');
                     setCurrentCapture(null);
                     fileInputRef.current?.click();
                   }}
                 >
-                  📁 所有文件
+                  选择文件
                 </button>
               </div>
 
