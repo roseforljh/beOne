@@ -41,7 +41,7 @@ export default function FileCard({ file, onUpdate, onDelete, onPreview }) {
 
   return (
     <motion.div
-      className="card p-4 group relative z-50"
+      className="card p-4 group"
       initial={{ opacity: 0, scale: 0.9 }}
       animate={{ opacity: 1, scale: 1 }}
       exit={{ opacity: 0, scale: 0.9 }}

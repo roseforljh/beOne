@@ -39,7 +39,7 @@ export default function FileTypeSelector({ onSelect, disabled, position = 'botto
           <>
             {/* 遮罩层 */}
             <div
-              className="fixed inset-0 z-40"
+              className="fixed inset-0 z-[9998]"
               onClick={() => setShowMenu(false)}
             />
 
@@ -48,7 +48,7 @@ export default function FileTypeSelector({ onSelect, disabled, position = 'botto
               initial={{ opacity: 0, y: position === 'bottom' ? 10 : -10, scale: 0.95 }}
               animate={{ opacity: 1, y: 0, scale: 1 }}
               exit={{ opacity: 0, y: position === 'bottom' ? 10 : -10, scale: 0.95 }}
-              className={`absolute ${position === 'bottom' ? 'top-full mt-2' : 'bottom-full mb-2'} left-0 bg-taiji-white rounded-xl shadow-2xl border-2 border-taiji-gray-200 overflow-hidden z-50 min-w-[180px]`}
+              className={`absolute ${position === 'bottom' ? 'top-full mt-2' : 'bottom-full mb-2'} left-0 bg-taiji-white rounded-xl shadow-2xl border-2 border-taiji-gray-200 overflow-hidden z-[9999] min-w-[180px]`}
             >
               {fileTypes.map((type, index) => (
                 <button
