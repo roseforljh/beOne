@@ -159,7 +159,7 @@ export default function Home() {
           ) : (
             <motion.div
               layout
-              className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6 pb-20 md:pb-8"
+              className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6 pb-32 md:pb-8 relative z-50"
             >
               <AnimatePresence>
                   {filteredFiles.map((file) => (

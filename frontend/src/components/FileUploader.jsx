@@ -178,6 +178,7 @@ export default function FileUploader({ onUploadComplete }) {
               {/* 移动端文件类型选择器 */}
               <div className="md:hidden">
                 <FileTypeSelector
+                  position="top"
                   onSelect={(type) => {
                     setCurrentAccept(type.accept);
                     setCurrentCapture(type.capture || null);
