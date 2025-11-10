@@ -219,10 +219,10 @@ export default function Chat() {
   const currentConversationTitle = conversations.find(c => c.id === currentConversationId)?.title || '加载中...';
 
   return (
-    <div className="min-h-screen bg-taiji-gray-100 flex flex-col">
+    <div className="h-screen bg-taiji-gray-100 flex flex-col overflow-hidden">
       <Header />
 
-      <div className="flex-1 flex overflow-hidden">
+      <div className="flex-1 flex overflow-hidden min-h-0">
         {/* 桌面端侧边栏 */}
         <div className="hidden lg:block">
           <ConversationSidebar
