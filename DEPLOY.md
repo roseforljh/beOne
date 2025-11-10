@@ -17,7 +17,7 @@ cd beOne
 
 2. **启动服务**
 ```bash
-docker-compose up -d
+docker compose up -d
 ```
 
 3. **访问应用**
@@ -33,33 +33,33 @@ docker-compose up -d
 **查看日志**
 ```bash
 # 查看所有服务日志
-docker-compose logs -f
+docker compose logs -f
 
 # 查看后端日志
-docker-compose logs -f backend
+docker compose logs -f backend
 
 # 查看前端日志
-docker-compose logs -f frontend
+docker compose logs -f frontend
 ```
 
 **停止服务**
 ```bash
-docker-compose down
+docker compose down
 ```
 
 **重启服务**
 ```bash
-docker-compose restart
+docker compose restart
 ```
 
 **重新构建并启动**
 ```bash
-docker-compose up -d --build
+docker compose up -d --build
 ```
 
 **查看运行状态**
 ```bash
-docker-compose ps
+docker compose ps
 ```
 
 ### 数据持久化
@@ -80,7 +80,7 @@ docker volume inspect beone_database
 - 前端：80（HTTP 默认端口，访问时无需指定）
 - 后端：5000
 
-如需修改端口，编辑 `docker-compose.yml`：
+如需修改端口，编辑 `docker compose.yml`：
 ```yaml
 services:
   frontend:
@@ -95,7 +95,7 @@ services:
 
 ### 环境变量
 
-可以在 `docker-compose.yml` 中修改环境变量：
+可以在 `docker compose.yml` 中修改环境变量：
 ```yaml
 environment:
   - JWT_SECRET=your_custom_secret  # 修改 JWT 密钥
@@ -108,7 +108,7 @@ environment:
    - 首次登录后立即修改 root 密码
 
 2. **修改 JWT 密钥**
-   - 在 `docker-compose.yml` 中修改 `JWT_SECRET`
+   - 在 `docker compose.yml` 中修改 `JWT_SECRET`
 
 3. **使用 HTTPS**
    - 建议使用 Nginx 反向代理并配置 SSL 证书
@@ -126,7 +126,7 @@ environment:
 **容器无法启动**
 ```bash
 # 查看详细日志
-docker-compose logs
+docker compose logs
 
 # 检查端口占用
 netstat -tulpn | grep :80
@@ -141,18 +141,63 @@ netstat -tulpn | grep :5000
 **数据库错误**
 ```bash
 # 删除数据卷重新初始化
-docker-compose down -v
-docker-compose up -d
+docker compose down -v
+docker compose up -d
 ```
 
 ### 更新应用
 
+#### 方法一：使用更新脚本（推荐）
+
 ```bash
-# 拉取最新代码
+# 给脚本添加执行权限（首次使用）
+chmod +x update.sh
+
+# 运行更新脚本
+./update.sh
+```
+
+更新脚本会自动完成以下操作：
+1. 从 GitHub 拉取最新代码
+2. 停止旧容器
+3. 清理未使用的镜像
+4. 重新构建并启动服务
+5. 检查服务状态
+
+#### 方法二：手动更新
+
+```bash
+# 1. 拉取最新代码
 git pull
 
-# 重新构建并启动
-docker-compose up -d --build
+# 2. 停止旧容器
+docker compose down
+
+# 3. 重新构建并启动
+docker compose up -d --build
+
+# 4. 查看服务状态
+docker compose ps
+```
+
+#### 更新注意事项
+
+1. **数据安全**：更新不会删除数据卷，你的文件和数据库会保留
+2. **服务中断**：更新过程中服务会短暂中断（约 1-2 分钟）
+3. **回滚操作**：如果更新后出现问题，可以回滚到上一版本：
+   ```bash
+   git reset --hard HEAD~1
+   docker compose up -d --build
+   ```
+
+#### 查看更新日志
+
+```bash
+# 查看最新的提交记录
+git log --oneline -10
+
+# 查看具体更改
+git show HEAD
 ```
 
 ### 备份数据

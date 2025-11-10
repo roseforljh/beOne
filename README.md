@@ -10,7 +10,7 @@
 
 **简洁 · 优雅 · 高效**
 
-[在线演示](#) | [快速开始](#-快速部署推荐) | [使用文档](USAGE.md) | [部署指南](DEPLOY.md)
+[在线演示](#) | [快速开始](#-快速部署推荐) | [使用文档](USAGE.md) | [部署指南](DEPLOY.md) | [更新部署](UPDATE_GUIDE.md)
 
 </div>
 
@@ -87,10 +87,10 @@ git clone https://github.com/roseforljh/beOne.git
 cd beOne
 
 # 2. 一键启动（后台运行）
-docker-compose up -d
+docker compose up -d
 
 # 3. 查看运行状态
-docker-compose ps
+docker compose ps
 
 # 4. 访问应用
 # 前端：http://your-ip （默认 80 端口）
@@ -112,19 +112,21 @@ start.bat
 
 ```bash
 # 查看日志
-docker-compose logs -f
+docker compose logs -f
 
 # 停止服务
-docker-compose down
+docker compose down
 
 # 重启服务
-docker-compose restart
+docker compose restart
 
-# 更新镜像
-docker-compose pull && docker-compose up -d
+# 更新部署（推荐使用更新脚本）
+./update.sh
 ```
 
-> 💡 **提示**：详细部署文档请查看 [DEPLOY.md](DEPLOY.md)
+> 💡 **提示**：
+> - 详细部署文档请查看 [DEPLOY.md](DEPLOY.md)
+> - 更新部署指南请查看 [UPDATE_GUIDE.md](UPDATE_GUIDE.md)
 
 ---
 
