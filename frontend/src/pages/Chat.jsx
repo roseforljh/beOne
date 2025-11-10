@@ -131,11 +131,16 @@ export default function Chat() {
       if (message.conversation_id === currentConversationId) {
         setMessages((prev) => [...prev, message]);
       }
-      // 延迟刷新会话列表，避免频繁请求
-      setTimeout(() => loadConversations(), 1000);
     };
     const handleOnlineUsers = (users) => setOnlineUsers(users);
     const handleMessageRecalled = (data) => setMessages((prev) => prev.filter(msg => msg.id !== data.messageId));
+    
+    // 新增：处理会话更新事件（实时刷新会话列表）
+    const handleConversationUpdated = (data) => {
+      // 立即刷新会话列表，确保所有端都能看到最新的会话顺序
+      loadConversations();
+    };
+    
     const handleConversationsUpdated = (data) => {
       if (data.type === 'created') {
         setConversations(prev => [data.conversation, ...prev]);
@@ -161,6 +166,7 @@ export default function Chat() {
     socket.on('new_message', handleNewMessage);
     socket.on('online_users', handleOnlineUsers);
     socket.on('message_recalled', handleMessageRecalled);
+    socket.on('conversation_updated', handleConversationUpdated);
     socket.on('conversations_updated', handleConversationsUpdated);
     
     // ... (typing logic remains the same)
@@ -170,6 +176,7 @@ export default function Chat() {
       socket.off('new_message', handleNewMessage);
       socket.off('online_users', handleOnlineUsers);
       socket.off('message_recalled', handleMessageRecalled);
+      socket.off('conversation_updated', handleConversationUpdated);
       socket.off('conversations_updated', handleConversationsUpdated);
       disconnectSocket();
     };

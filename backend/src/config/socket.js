@@ -95,9 +95,17 @@ export const initSocket = (httpServer) => {
             // 广播给该用户的所有会话（手机和电脑）
             io.to(`user_${socket.userId}`).emit('new_message', message);
             
-            // 如果有会话ID，更新会话的更新时间
+            // 如果有会话ID，更新会话的更新时间并广播更新事件
             if (conversationId) {
-              db.run('UPDATE conversations SET updated_at = CURRENT_TIMESTAMP WHERE id = ?', [conversationId]);
+              db.run('UPDATE conversations SET updated_at = CURRENT_TIMESTAMP WHERE id = ?', [conversationId], function(err) {
+                if (!err) {
+                  // 广播会话更新事件，通知所有客户端刷新会话列表
+                  io.to(`user_${socket.userId}`).emit('conversation_updated', {
+                    conversationId: conversationId,
+                    updatedAt: new Date().toISOString()
+                  });
+                }
+              });
             }
           }
         );
@@ -149,9 +157,17 @@ export const initSocket = (httpServer) => {
               // 广播给该用户的所有会话（手机和电脑）
               io.to(`user_${socket.userId}`).emit('new_message', message);
               
-              // 如果有会话ID，更新会话的更新时间
+              // 如果有会话ID，更新会话的更新时间并广播更新事件
               if (conversationId) {
-                db.run('UPDATE conversations SET updated_at = CURRENT_TIMESTAMP WHERE id = ?', [conversationId]);
+                db.run('UPDATE conversations SET updated_at = CURRENT_TIMESTAMP WHERE id = ?', [conversationId], function(err) {
+                  if (!err) {
+                    // 广播会话更新事件，通知所有客户端刷新会话列表
+                    io.to(`user_${socket.userId}`).emit('conversation_updated', {
+                      conversationId: conversationId,
+                      updatedAt: new Date().toISOString()
+                    });
+                  }
+                });
               }
             }
           );
