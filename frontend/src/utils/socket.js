@@ -7,12 +7,18 @@ export const connectSocket = (token) => {
     return socket;
   }
 
-  // 使用相对路径连接，自动适配 HTTP/HTTPS 和 nginx 代理
-  // 在生产环境中通过 nginx 代理，开发环境直连 5000 端口
-  const isDevelopment = window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1';
-  const socketUrl = isDevelopment 
+  // 判断是否为开发环境（端口5173表示Vite开发服务器）
+  const isDevelopment = window.location.port === '5173' ||
+                        window.location.hostname === 'localhost' ||
+                        window.location.hostname === '127.0.0.1';
+  
+  // 开发环境：直连5000端口
+  // 生产环境：使用当前域名（nginx代理）
+  const socketUrl = isDevelopment
     ? `http://${window.location.hostname}:5000`
     : window.location.origin;
+
+  console.log('Socket连接地址:', socketUrl);
 
   socket = io(socketUrl, {
     auth: {

@@ -59,7 +59,7 @@ export default function ChatMessage({ message, isOwn, currentSessionId, onRecall
       className={`flex ${isCurrentSession ? 'justify-end' : 'justify-start'} mb-3 md:mb-4 group`}
       onClick={toggleActions}
     >
-      <div className={`max-w-[85%] md:max-w-[70%] ${isCurrentSession ? 'items-end' : 'items-start'} flex flex-col relative`}>
+      <div className={`max-w-[90%] ${isCurrentSession ? 'items-end' : 'items-start'} flex flex-col relative`}>
         {/* 用户名和时间 */}
         <div className="flex items-center gap-2 mb-1 px-2">
           <span className="text-xs text-taiji-gray-500 font-medium">
@@ -74,16 +74,16 @@ export default function ChatMessage({ message, isOwn, currentSessionId, onRecall
         </div>
 
         {/* 消息内容 */}
-        <div className="relative">
+        <div className="relative w-full">
           <div
-            className={`px-3 md:px-4 py-2 md:py-3 rounded-2xl text-sm md:text-base ${
+            className={`px-3 md:px-4 py-2 md:py-3 rounded-2xl text-sm md:text-base max-w-full ${
               isCurrentSession
                 ? 'bg-taiji-black text-taiji-white'
                 : 'bg-taiji-gray-200 text-taiji-black'
             }`}
           >
           {message.type === 'text' ? (
-            <p className="whitespace-pre-wrap break-words">{message.content}</p>
+            <p className="whitespace-pre-wrap break-words max-w-full overflow-wrap-anywhere">{message.content}</p>
           ) : message.type === 'file' && message.file ? (
             <div className="flex items-center gap-2 md:gap-3 min-w-[180px] md:min-w-[200px]">
               <div className="text-2xl md:text-3xl">{getFileIcon(message.file.mimetype)}</div>
@@ -115,8 +115,8 @@ export default function ChatMessage({ message, isOwn, currentSessionId, onRecall
           {/* 操作按钮 - 始终渲染，用透明度和指针事件控制 */}
           <div
             className={`flex gap-1 md:gap-2 mt-2 ${isOwn ? 'justify-end' : 'justify-start'} transition-all duration-150 ease-out ${
-              showActions 
-                ? 'opacity-100 pointer-events-auto' 
+              showActions
+                ? 'opacity-100 pointer-events-auto'
                 : 'opacity-0 pointer-events-none md:group-hover:opacity-100 md:group-hover:pointer-events-auto'
             }`}
           >
