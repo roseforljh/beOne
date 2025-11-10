@@ -68,18 +68,13 @@ export const initSocket = (httpServer) => {
 
     // 发送文本消息
     socket.on('send_message', async (data) => {
-      const { content } = data;
-      
-      // 更新游客活跃时间
-      // if (socket.isGuest) {
-      //   updateGuestActivity(socket.userId);
-      // }
+      const { content, conversationId } = data;
       
       try {
-        // 保存到数据库，包含 session_id
+        // 保存到数据库，包含 session_id 和 conversation_id
         db.run(
-          'INSERT INTO messages (user_id, type, content, session_id) VALUES (?, ?, ?, ?)',
-          [socket.userId, 'text', content, socket.sessionId],
+          'INSERT INTO messages (user_id, type, content, session_id, conversation_id) VALUES (?, ?, ?, ?, ?)',
+          [socket.userId, 'text', content, socket.sessionId, conversationId || null],
           function(err) {
             if (err) {
               socket.emit('error', { message: '消息发送失败' });
@@ -93,11 +88,17 @@ export const initSocket = (httpServer) => {
               type: 'text',
               content: content,
               session_id: socket.sessionId,
+              conversation_id: conversationId || null,
               created_at: new Date().toISOString()
             };
 
             // 广播给该用户的所有会话（手机和电脑）
             io.to(`user_${socket.userId}`).emit('new_message', message);
+            
+            // 如果有会话ID，更新会话的更新时间
+            if (conversationId) {
+              db.run('UPDATE conversations SET updated_at = CURRENT_TIMESTAMP WHERE id = ?', [conversationId]);
+            }
           }
         );
       } catch (error) {
@@ -108,7 +109,7 @@ export const initSocket = (httpServer) => {
 
     // 发送文件消息
     socket.on('send_file_message', async (data) => {
-      const { fileId } = data;
+      const { fileId, conversationId } = data;
       
       try {
         // 验证文件存在
@@ -118,10 +119,10 @@ export const initSocket = (httpServer) => {
             return;
           }
 
-          // 保存到数据库，包含 session_id
+          // 保存到数据库，包含 session_id 和 conversation_id
           db.run(
-            'INSERT INTO messages (user_id, type, file_id, session_id) VALUES (?, ?, ?, ?)',
-            [socket.userId, 'file', fileId, socket.sessionId],
+            'INSERT INTO messages (user_id, type, file_id, session_id, conversation_id) VALUES (?, ?, ?, ?, ?)',
+            [socket.userId, 'file', fileId, socket.sessionId, conversationId || null],
             function(err) {
               if (err) {
                 socket.emit('error', { message: '文件消息发送失败' });
@@ -141,11 +142,17 @@ export const initSocket = (httpServer) => {
                   size: file.size
                 },
                 session_id: socket.sessionId,
+                conversation_id: conversationId || null,
                 created_at: new Date().toISOString()
               };
 
               // 广播给该用户的所有会话（手机和电脑）
               io.to(`user_${socket.userId}`).emit('new_message', message);
+              
+              // 如果有会话ID，更新会话的更新时间
+              if (conversationId) {
+                db.run('UPDATE conversations SET updated_at = CURRENT_TIMESTAMP WHERE id = ?', [conversationId]);
+              }
             }
           );
         });

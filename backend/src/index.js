@@ -10,6 +10,7 @@ import uploadRoutes from './routes/upload.js';
 import filesRoutes from './routes/files.js';
 import messagesRoutes from './routes/messages.js';
 import userRoutes from './routes/user.js';
+import conversationsRoutes from './routes/conversations.js';
 
 dotenv.config();
 
@@ -28,6 +29,7 @@ app.use('/api/upload', uploadRoutes);
 app.use('/api/files', filesRoutes);
 app.use('/api/messages', messagesRoutes);
 app.use('/api/user', userRoutes);
+app.use('/api/conversations', conversationsRoutes);
 
 // 健康检查
 app.get('/api/health', (req, res) => {

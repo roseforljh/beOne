@@ -1,14 +1,15 @@
 import { useState, useRef } from 'react';
 import { motion } from 'framer-motion';
 import { sendTextMessage, sendFileMessage, emitTyping, emitStopTyping } from '../utils/socket';
-import { FileUploader as Uploader } from '../utils/uploadHelper';
+import { FileUploader as Uploader, formatFileSize } from '../utils/uploadHelper';
 import FileTypeSelector from './FileTypeSelector';
 
-export default function ChatInput({ onFileSent }) {
+export default function ChatInput({ conversationId, onFileSent }) {
   const [message, setMessage] = useState('');
   const [uploading, setUploading] = useState(false);
   const [uploadingFiles, setUploadingFiles] = useState([]);
   const [uploadProgress, setUploadProgress] = useState({});
+  const [uploadSpeed, setUploadSpeed] = useState({});
   const fileInputRef = useRef(null);
   const typingTimeoutRef = useRef(null);
   const [currentAccept, setCurrentAccept] = useState('*/*');
@@ -16,7 +17,7 @@ export default function ChatInput({ onFileSent }) {
 
   const handleSend = () => {
     if (message.trim()) {
-      sendTextMessage(message.trim());
+      sendTextMessage(message.trim(), conversationId);
       setMessage('');
       emitStopTyping();
     }
@@ -53,52 +54,58 @@ export default function ChatInput({ onFileSent }) {
     setUploading(true);
     setUploadingFiles(files);
     
-    // 初始化进度
+    // 初始化进度和速度
     const initialProgress = {};
+    const initialSpeed = {};
     files.forEach((file, index) => {
       initialProgress[index] = 0;
+      initialSpeed[index] = 0;
     });
     setUploadProgress(initialProgress);
+    setUploadSpeed(initialSpeed);
 
-    // 并发上传所有文件
-    const uploadPromises = files.map((file, index) => {
-      const uploader = new Uploader(file, (prog) => {
-        setUploadProgress(prev => ({
-          ...prev,
-          [index]: Math.round(prog)
-        }));
-      });
-
-      return uploader.upload().then(result => ({
-        index,
+    // 顺序上传文件（一个接一个）
+    const results = [];
+    for (let index = 0; index < files.length; index++) {
+      const file = files[index];
+      const uploader = new Uploader(
         file,
-        result
-      }));
-    });
-
-    try {
-      const results = await Promise.all(uploadPromises);
-      
-      // 发送成功上传的文件消息
-      const succeeded = results.filter(r => r.result.success);
-      succeeded.forEach(r => {
-        sendFileMessage(r.result.file.id);
-        if (onFileSent) {
-          onFileSent(r.result.file);
+        (prog) => {
+          setUploadProgress(prev => ({
+            ...prev,
+            [index]: prog
+          }));
+        },
+        (speed) => {
+          setUploadSpeed(prev => ({
+            ...prev,
+            [index]: speed
+          }));
         }
-      });
+      );
 
-      const failed = results.filter(r => !r.result.success);
-      if (failed.length > 0) {
-        alert(`${failed.length} 个文件上传失败`);
+      const result = await uploader.upload();
+      results.push({ index, file, result });
+
+      // 上传成功立即发送消息
+      if (result.success) {
+        sendFileMessage(result.file.id, conversationId);
+        if (onFileSent) {
+          onFileSent(result.file);
+        }
       }
-    } catch (error) {
-      alert('上传过程中出现错误');
+    }
+
+    // 检查失败的文件
+    const failed = results.filter(r => !r.result.success);
+    if (failed.length > 0) {
+      alert(`${failed.length} 个文件上传失败`);
     }
 
     setUploading(false);
     setUploadingFiles([]);
     setUploadProgress({});
+    setUploadSpeed({});
     
     // 重置文件选择器
     if (fileInputRef.current) {
@@ -112,30 +119,49 @@ export default function ChatInput({ onFileSent }) {
         <motion.div
           initial={{ opacity: 0, y: 10 }}
           animate={{ opacity: 1, y: 0 }}
-          className="mb-2 md:mb-3 bg-taiji-gray-100 rounded-lg p-2 md:p-3 space-y-2 max-h-40 overflow-y-auto"
+          className="mb-2 md:mb-3 bg-taiji-gray-100 rounded-lg p-2 md:p-3 space-y-3 max-h-48 overflow-y-auto"
         >
-          <div className="text-xs md:text-sm text-taiji-gray-600 font-medium mb-2">
-            上传中... ({uploadingFiles.length} 个文件)
+          <div className="text-xs md:text-sm text-taiji-gray-600 font-medium">
+            正在上传 {uploadingFiles.length} 个文件
           </div>
           {uploadingFiles.map((file, index) => {
             const progress = uploadProgress[index] || 0;
+            const speed = uploadSpeed[index] || 0;
+            const displayProgress = Math.min(Math.round(progress), 100);
+            
             return (
-              <div key={index}>
-                <div className="flex items-center justify-between mb-1">
-                  <span className="text-xs text-taiji-gray-700 truncate flex-1 mr-2">
+              <div key={index} className="bg-taiji-white rounded-lg p-2">
+                <div className="flex items-center justify-between mb-1.5">
+                  <span className="text-xs text-taiji-gray-700 truncate flex-1 mr-2 font-medium">
                     {file.name}
                   </span>
-                  <span className="text-xs font-medium text-taiji-black">
-                    {progress}%
-                  </span>
+                  <div className="flex items-center gap-2">
+                    {speed > 0 && (
+                      <span className="text-xs text-taiji-gray-500">
+                        {formatFileSize(speed)}/s
+                      </span>
+                    )}
+                    <span className="text-xs font-bold text-taiji-black min-w-[45px] text-right">
+                      {displayProgress}%
+                    </span>
+                  </div>
                 </div>
-                <div className="w-full bg-taiji-gray-200 rounded-full h-1.5 overflow-hidden">
+                <div className="w-full bg-taiji-gray-200 rounded-full h-2 overflow-hidden">
                   <motion.div
-                    className="bg-taiji-black h-full"
-                    initial={{ width: 0 }}
-                    animate={{ width: `${progress}%` }}
-                    transition={{ duration: 0.3 }}
+                    className="bg-taiji-black h-full rounded-full"
+                    style={{ width: `${displayProgress}%` }}
+                    transition={{ duration: 0.1, ease: 'linear' }}
                   />
+                </div>
+                <div className="flex items-center justify-between mt-1">
+                  <span className="text-xs text-taiji-gray-500">
+                    {formatFileSize(file.size)}
+                  </span>
+                  {displayProgress === 100 && (
+                    <span className="text-xs text-green-600 font-medium">
+                      ✓ 完成
+                    </span>
+                  )}
                 </div>
               </div>
             );
@@ -172,16 +198,15 @@ export default function ChatInput({ onFileSent }) {
           value={message}
           onChange={handleChange}
           onKeyPress={handleKeyPress}
-          placeholder="输入消息..."
-          disabled={uploading}
-          className="flex-1 px-3 md:px-4 py-2 md:py-3 text-sm md:text-base border-2 border-taiji-gray-300 rounded-lg focus:border-taiji-black focus:outline-none transition-colors disabled:opacity-50"
+          placeholder={uploading ? "上传中，仍可输入消息..." : "输入消息..."}
+          className="flex-1 px-3 md:px-4 py-2 md:py-3 text-sm md:text-base border-2 border-taiji-gray-300 rounded-lg focus:border-taiji-black focus:outline-none transition-colors"
         />
 
         <motion.button
           whileHover={{ scale: 1.05 }}
           whileTap={{ scale: 0.95 }}
           onClick={handleSend}
-          disabled={!message.trim() || uploading}
+          disabled={!message.trim()}
           className="px-4 md:px-6 py-2 md:py-3 bg-taiji-black text-taiji-white rounded-lg hover:bg-taiji-gray-800 transition-colors disabled:opacity-50 disabled:cursor-not-allowed font-medium text-sm md:text-base min-w-[60px]"
         >
           发送

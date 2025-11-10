@@ -85,17 +85,33 @@ export const initDatabase = async () => {
         if (err) console.error('创建分片表失败:', err);
       });
 
+      // 创建会话表
+      db.run(`
+        CREATE TABLE IF NOT EXISTS conversations (
+          id INTEGER PRIMARY KEY AUTOINCREMENT,
+          user_id INTEGER NOT NULL,
+          title TEXT NOT NULL,
+          created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+          updated_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+          FOREIGN KEY (user_id) REFERENCES users (id)
+        )
+      `, (err) => {
+        if (err) console.error('创建会话表失败:', err);
+      });
+
       // 创建消息表
       db.run(`
         CREATE TABLE IF NOT EXISTS messages (
           id INTEGER PRIMARY KEY AUTOINCREMENT,
           user_id INTEGER NOT NULL,
+          conversation_id INTEGER,
           type TEXT NOT NULL,
           content TEXT,
           file_id INTEGER,
           session_id TEXT,
           created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
           FOREIGN KEY (user_id) REFERENCES users (id),
+          FOREIGN KEY (conversation_id) REFERENCES conversations (id) ON DELETE CASCADE,
           FOREIGN KEY (file_id) REFERENCES files (id)
         )
       `, (err) => {
@@ -103,6 +119,11 @@ export const initDatabase = async () => {
 
         // 尝试添加 session_id 字段（如果表已存在但没有该字段）
         db.run(`ALTER TABLE messages ADD COLUMN session_id TEXT`, (err) => {
+          // 忽略错误（字段可能已存在）
+        });
+        
+        // 尝试添加 conversation_id 字段
+        db.run(`ALTER TABLE messages ADD COLUMN conversation_id INTEGER`, (err) => {
           // 忽略错误（字段可能已存在）
         });
       });
@@ -135,6 +156,23 @@ export const initDatabase = async () => {
           console.log('数据库初始化完成');
           resolve();
         }
+      });
+
+      // 创建索引以优化查询性能
+      db.run('CREATE INDEX IF NOT EXISTS idx_messages_user_id ON messages(user_id)', (err) => {
+        if (err) console.error('创建索引失败:', err);
+      });
+      
+      db.run('CREATE INDEX IF NOT EXISTS idx_messages_conversation_id ON messages(conversation_id)', (err) => {
+        if (err) console.error('创建索引失败:', err);
+      });
+      
+      db.run('CREATE INDEX IF NOT EXISTS idx_messages_created_at ON messages(created_at)', (err) => {
+        if (err) console.error('创建索引失败:', err);
+      });
+      
+      db.run('CREATE INDEX IF NOT EXISTS idx_conversations_user_id ON conversations(user_id)', (err) => {
+        if (err) console.error('创建索引失败:', err);
       });
 
       // 确保 uploads 目录存在

@@ -54,15 +54,15 @@ export const disconnectSocket = () => {
 
 export const getSocket = () => socket;
 
-export const sendTextMessage = (content) => {
+export const sendTextMessage = (content, conversationId = null) => {
   if (socket?.connected) {
-    socket.emit('send_message', { content });
+    socket.emit('send_message', { content, conversationId });
   }
 };
 
-export const sendFileMessage = (fileId) => {
+export const sendFileMessage = (fileId, conversationId = null) => {
   if (socket?.connected) {
-    socket.emit('send_file_message', { fileId });
+    socket.emit('send_file_message', { fileId, conversationId });
   }
 };
 

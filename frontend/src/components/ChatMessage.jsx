@@ -59,7 +59,7 @@ export default function ChatMessage({ message, isOwn, currentSessionId, onRecall
       className={`flex ${isCurrentSession ? 'justify-end' : 'justify-start'} mb-3 md:mb-4 group`}
       onClick={toggleActions}
     >
-      <div className={`max-w-[90%] ${isCurrentSession ? 'items-end' : 'items-start'} flex flex-col relative`}>
+      <div className={`max-w-[90%] md:max-w-[85%] lg:max-w-[75%] ${isCurrentSession ? 'items-end' : 'items-start'} flex flex-col relative`}>
         {/* 用户名和时间 */}
         <div className="flex items-center gap-2 mb-1 px-2">
           <span className="text-xs text-taiji-gray-500 font-medium">
@@ -76,14 +76,14 @@ export default function ChatMessage({ message, isOwn, currentSessionId, onRecall
         {/* 消息内容 */}
         <div className="relative w-full">
           <div
-            className={`px-3 md:px-4 py-2 md:py-3 rounded-2xl text-sm md:text-base max-w-full ${
+            className={`px-3 md:px-4 py-2 md:py-3 rounded-2xl text-sm md:text-base ${
               isCurrentSession
                 ? 'bg-taiji-black text-taiji-white'
                 : 'bg-taiji-gray-200 text-taiji-black'
             }`}
           >
           {message.type === 'text' ? (
-            <p className="whitespace-pre-wrap break-words max-w-full overflow-wrap-anywhere">{message.content}</p>
+            <p className="whitespace-pre-wrap break-all">{message.content}</p>
           ) : message.type === 'file' && message.file ? (
             <div className="flex items-center gap-2 md:gap-3 min-w-[180px] md:min-w-[200px]">
               <div className="text-2xl md:text-3xl">{getFileIcon(message.file.mimetype)}</div>

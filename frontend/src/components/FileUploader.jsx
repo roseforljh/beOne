@@ -14,6 +14,7 @@ export default function FileUploader({ onUploadComplete }) {
   const fileInputRef = useRef(null);
   const [currentAccept, setCurrentAccept] = useState('*/*');
   const [currentCapture, setCurrentCapture] = useState(null);
+  const uploadersRef = useRef([]);
 
   // 游客不能上传
   if (user?.is_guest) {
@@ -75,6 +76,7 @@ export default function FileUploader({ onUploadComplete }) {
     if (selectedFiles.length === 0) return;
 
     setUploading(true);
+    uploadersRef.current = [];
 
     // 并发上传所有文件
     const uploadPromises = selectedFiles.map((file, index) => {
@@ -84,6 +86,9 @@ export default function FileUploader({ onUploadComplete }) {
           [index]: Math.round(prog)
         }));
       });
+
+      // 保存上传器引用以便取消
+      uploadersRef.current.push(uploader);
 
       return uploader.upload().then(result => ({
         index,
@@ -96,7 +101,8 @@ export default function FileUploader({ onUploadComplete }) {
       const results = await Promise.all(uploadPromises);
       
       // 检查结果
-      const failed = results.filter(r => !r.result.success);
+      const cancelled = results.filter(r => r.result.cancelled);
+      const failed = results.filter(r => !r.result.success && !r.result.cancelled);
       const succeeded = results.filter(r => r.result.success);
 
       if (succeeded.length > 0) {
@@ -108,6 +114,10 @@ export default function FileUploader({ onUploadComplete }) {
         });
       }
 
+      if (cancelled.length > 0) {
+        alert(`${cancelled.length} 个文件上传已取消`);
+      }
+
       if (failed.length > 0) {
         alert(`${failed.length} 个文件上传失败`);
       }
@@ -115,11 +125,25 @@ export default function FileUploader({ onUploadComplete }) {
       // 清空选择
       setSelectedFiles([]);
       setUploadProgress({});
+      uploadersRef.current = [];
     } catch (error) {
       alert('上传过程中出现错误');
     }
 
     setUploading(false);
+  };
+
+  const handleCancelUpload = () => {
+    // 中断所有上传
+    uploadersRef.current.forEach(uploader => {
+      uploader.abort();
+    });
+    
+    // 清空状态
+    setUploading(false);
+    setSelectedFiles([]);
+    setUploadProgress({});
+    uploadersRef.current = [];
   };
 
   const handleCancel = () => {
@@ -235,6 +259,12 @@ export default function FileUploader({ onUploadComplete }) {
                 <p className="text-base md:text-lg font-medium text-taiji-black">
                   上传中... ({Object.keys(uploadProgress).length}/{selectedFiles.length})
                 </p>
+                <button
+                  onClick={handleCancelUpload}
+                  className="mt-2 px-4 py-2 bg-red-500 hover:bg-red-600 text-white text-sm rounded-lg transition-colors"
+                >
+                  取消上传
+                </button>
               </div>
 
               {selectedFiles.map((file, index) => {
