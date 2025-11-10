@@ -16,12 +16,40 @@ if (!fs.existsSync(dbDir)) {
   fs.mkdirSync(dbDir, { recursive: true });
 }
 
-// 创建数据库连接
-export const db = new sqlite3.Database(dbPath, (err) => {
+// 创建数据库连接，启用性能优化
+export const db = new sqlite3.Database(dbPath, sqlite3.OPEN_READWRITE | sqlite3.OPEN_CREATE, (err) => {
   if (err) {
     console.error('数据库连接失败:', err);
   } else {
     console.log('数据库连接成功');
+    
+    // 性能优化配置
+    db.configure('busyTimeout', 5000); // 设置繁忙超时
+    
+    // 启用 WAL 模式以提高并发性能
+    db.run('PRAGMA journal_mode = WAL', (err) => {
+      if (err) console.error('启用 WAL 模式失败:', err);
+    });
+    
+    // 优化同步模式
+    db.run('PRAGMA synchronous = NORMAL', (err) => {
+      if (err) console.error('设置同步模式失败:', err);
+    });
+    
+    // 增加缓存大小 (10MB)
+    db.run('PRAGMA cache_size = -10000', (err) => {
+      if (err) console.error('设置缓存大小失败:', err);
+    });
+    
+    // 启用内存映射 I/O (256MB)
+    db.run('PRAGMA mmap_size = 268435456', (err) => {
+      if (err) console.error('设置内存映射失败:', err);
+    });
+    
+    // 优化临时存储
+    db.run('PRAGMA temp_store = MEMORY', (err) => {
+      if (err) console.error('设置临时存储失败:', err);
+    });
   }
 });
 
@@ -159,20 +187,30 @@ export const initDatabase = async () => {
       });
 
       // 创建索引以优化查询性能
-      db.run('CREATE INDEX IF NOT EXISTS idx_messages_user_id ON messages(user_id)', (err) => {
-        if (err) console.error('创建索引失败:', err);
+      const indexes = [
+        'CREATE INDEX IF NOT EXISTS idx_messages_user_id ON messages(user_id)',
+        'CREATE INDEX IF NOT EXISTS idx_messages_conversation_id ON messages(conversation_id)',
+        'CREATE INDEX IF NOT EXISTS idx_messages_created_at ON messages(created_at DESC)',
+        'CREATE INDEX IF NOT EXISTS idx_messages_session_id ON messages(session_id)',
+        'CREATE INDEX IF NOT EXISTS idx_conversations_user_id ON conversations(user_id)',
+        'CREATE INDEX IF NOT EXISTS idx_conversations_updated_at ON conversations(updated_at DESC)',
+        'CREATE INDEX IF NOT EXISTS idx_files_user_id ON files(user_id)',
+        'CREATE INDEX IF NOT EXISTS idx_files_created_at ON files(created_at DESC)',
+        'CREATE INDEX IF NOT EXISTS idx_files_is_public ON files(is_public)',
+        'CREATE INDEX IF NOT EXISTS idx_chunks_upload_id ON chunks(upload_id)',
+        'CREATE INDEX IF NOT EXISTS idx_users_username ON users(username)',
+        'CREATE INDEX IF NOT EXISTS idx_users_expires_at ON users(expires_at)'
+      ];
+      
+      indexes.forEach(indexSql => {
+        db.run(indexSql, (err) => {
+          if (err) console.error('创建索引失败:', err);
+        });
       });
       
-      db.run('CREATE INDEX IF NOT EXISTS idx_messages_conversation_id ON messages(conversation_id)', (err) => {
-        if (err) console.error('创建索引失败:', err);
-      });
-      
-      db.run('CREATE INDEX IF NOT EXISTS idx_messages_created_at ON messages(created_at)', (err) => {
-        if (err) console.error('创建索引失败:', err);
-      });
-      
-      db.run('CREATE INDEX IF NOT EXISTS idx_conversations_user_id ON conversations(user_id)', (err) => {
-        if (err) console.error('创建索引失败:', err);
+      // 分析表以优化查询计划
+      db.run('ANALYZE', (err) => {
+        if (err) console.error('分析表失败:', err);
       });
 
       // 确保 uploads 目录存在

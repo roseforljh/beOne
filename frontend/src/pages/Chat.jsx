@@ -1,6 +1,6 @@
-import { useState, useEffect, useRef, useCallback } from 'react';
+import { useState, useEffect, useRef, useCallback, useMemo } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
-import axios from 'axios';
+import { axiosInstance } from '../utils/api';
 import Header from '../components/Header';
 import ChatMessage from '../components/ChatMessage';
 import ChatInput from '../components/ChatInput';
@@ -24,33 +24,39 @@ export default function Chat() {
   const typingTimeouts = useRef(new Map());
   const initialized = useRef(false);
 
-  const mergedOnlineUsers = onlineUsers.reduce((acc, user) => {
-    const existing = acc.find(u => u.username === user.username);
-    if (existing) {
-      existing.sessionCount += 1;
-    } else {
-      acc.push({
-        username: user.username,
-        sessionCount: 1,
-        connectedAt: user.connectedAt
-      });
-    }
-    return acc;
+  // 使用 useMemo 优化在线用户列表计算
+  const mergedOnlineUsers = useMemo(() => {
+    return onlineUsers.reduce((acc, user) => {
+      const existing = acc.find(u => u.username === user.username);
+      if (existing) {
+        existing.sessionCount += 1;
+      } else {
+        acc.push({
+          username: user.username,
+          sessionCount: 1,
+          connectedAt: user.connectedAt
+        });
+      }
+      return acc;
+    }, []);
+  }, [onlineUsers]);
+
+  const scrollToBottom = useCallback((instant = false) => {
+    messagesEndRef.current?.scrollIntoView({ behavior: instant ? 'instant' : 'smooth' });
   }, []);
 
-  const scrollToBottom = (instant = false) => {
-    messagesEndRef.current?.scrollIntoView({ behavior: instant ? 'instant' : 'smooth' });
-  };
-
+  // 优化滚动：使用 requestAnimationFrame
   useEffect(() => {
-    scrollToBottom();
-  }, [messages]);
+    requestAnimationFrame(() => {
+      scrollToBottom();
+    });
+  }, [messages, scrollToBottom]);
 
   const createNewConversation = useCallback(async () => {
     try {
       const now = new Date();
       const time = `${now.getMonth() + 1}/${now.getDate()} ${now.getHours()}:${String(now.getMinutes()).padStart(2, '0')}`;
-      const response = await axios.post('/api/conversations', {
+      const response = await axiosInstance.post('/api/conversations', {
         title: `新会话 ${time}`
       });
       return response.data.conversation;
@@ -63,7 +69,7 @@ export default function Chat() {
 
   const loadConversations = useCallback(async (selectFirst = false) => {
     try {
-      const response = await axios.get('/api/conversations');
+      const response = await axiosInstance.get('/api/conversations');
       const fetchedConversations = response.data.conversations;
       setConversations(fetchedConversations);
 
@@ -85,7 +91,7 @@ export default function Chat() {
     }
     setLoading(true);
     try {
-      const response = await axios.get(`/api/messages?conversation_id=${conversationId}&limit=50`);
+      const response = await axiosInstance.get(`/api/messages?conversation_id=${conversationId}&limit=50`);
       setMessages(response.data.messages);
     } catch (error) {
       console.error('加载消息失败:', error);
@@ -96,7 +102,7 @@ export default function Chat() {
 
   const initializeApp = useCallback(async () => {
     try {
-      const response = await axios.get('/api/conversations');
+      const response = await axiosInstance.get('/api/conversations');
       const fetchedConversations = response.data.conversations;
       setConversations(fetchedConversations);
       if (fetchedConversations.length > 0) {
@@ -123,46 +129,57 @@ export default function Chat() {
     }
   }, [currentConversationId, loadMessages]);
 
+  // 定义Socket事件处理函数
+  const handleConnect = useCallback((socket) => {
+    setCurrentSessionId(socket.id);
+  }, []);
+  
+  const handleNewMessage = useCallback((message) => {
+    if (message.conversation_id === currentConversationId) {
+      setMessages((prev) => [...prev, message]);
+    }
+  }, [currentConversationId]);
+  
+  const handleOnlineUsers = useCallback((users) => {
+    setOnlineUsers(users);
+  }, []);
+  
+  const handleMessageRecalled = useCallback((data) => {
+    setMessages((prev) => prev.filter(msg => msg.id !== data.messageId));
+  }, []);
+  
+  const handleConversationUpdated = useCallback(() => {
+    loadConversations();
+  }, [loadConversations]);
+  
+  const handleConversationsUpdated = useCallback((data) => {
+    if (data.type === 'created') {
+      setConversations(prev => [data.conversation, ...prev]);
+    } else if (data.type === 'updated') {
+      setConversations(prev =>
+        prev.map(c => c.id === data.conversationId ? { ...c, title: data.title } : c)
+      );
+    } else if (data.type === 'deleted') {
+      setConversations(prev => prev.filter(c => c.id !== data.conversationId));
+      // 如果删除的是当前会话，则切换到第一个
+      if (currentConversationId === data.conversationId) {
+        const remainingConversations = conversations.filter(c => c.id !== data.conversationId);
+        if(remainingConversations.length > 0) {
+          setCurrentConversationId(remainingConversations[0].id);
+        } else {
+          setCurrentConversationId(null);
+        }
+      }
+    }
+  }, [currentConversationId, conversations]);
+
+  // Socket连接效果
   useEffect(() => {
     const socket = connectSocket(token);
 
-    const handleConnect = () => setCurrentSessionId(socket.id);
-    const handleNewMessage = (message) => {
-      if (message.conversation_id === currentConversationId) {
-        setMessages((prev) => [...prev, message]);
-      }
-    };
-    const handleOnlineUsers = (users) => setOnlineUsers(users);
-    const handleMessageRecalled = (data) => setMessages((prev) => prev.filter(msg => msg.id !== data.messageId));
+    const onConnect = () => handleConnect(socket);
     
-    // 新增：处理会话更新事件（实时刷新会话列表）
-    const handleConversationUpdated = (data) => {
-      // 立即刷新会话列表，确保所有端都能看到最新的会话顺序
-      loadConversations();
-    };
-    
-    const handleConversationsUpdated = (data) => {
-      if (data.type === 'created') {
-        setConversations(prev => [data.conversation, ...prev]);
-      } else if (data.type === 'updated') {
-        setConversations(prev =>
-          prev.map(c => c.id === data.conversationId ? { ...c, title: data.title } : c)
-        );
-      } else if (data.type === 'deleted') {
-        setConversations(prev => prev.filter(c => c.id !== data.conversationId));
-        // 如果删除的是当前会话，则切换到第一个
-        if (currentConversationId === data.conversationId) {
-            const remainingConversations = conversations.filter(c => c.id !== data.conversationId);
-            if(remainingConversations.length > 0) {
-                setCurrentConversationId(remainingConversations[0].id);
-            } else {
-                setCurrentConversationId(null);
-            }
-        }
-      }
-    };
-
-    socket.on('connect', handleConnect);
+    socket.on('connect', onConnect);
     socket.on('new_message', handleNewMessage);
     socket.on('online_users', handleOnlineUsers);
     socket.on('message_recalled', handleMessageRecalled);
@@ -172,7 +189,7 @@ export default function Chat() {
     // ... (typing logic remains the same)
 
     return () => {
-      socket.off('connect', handleConnect);
+      socket.off('connect', onConnect);
       socket.off('new_message', handleNewMessage);
       socket.off('online_users', handleOnlineUsers);
       socket.off('message_recalled', handleMessageRecalled);
@@ -180,7 +197,7 @@ export default function Chat() {
       socket.off('conversations_updated', handleConversationsUpdated);
       disconnectSocket();
     };
-  }, [token, currentConversationId, loadConversations]);
+  }, [token, handleConnect, handleNewMessage, handleOnlineUsers, handleMessageRecalled, handleConversationUpdated, handleConversationsUpdated]);
 
   const handleMessageRecall = (messageId) => {
     setMessages((prev) => prev.filter(msg => msg.id !== messageId));
@@ -191,7 +208,7 @@ export default function Chat() {
     if (!window.confirm('确定要清空当前会话的聊天记录吗？此操作不可恢复！')) return;
 
     try {
-      await axios.delete(`/api/messages?conversation_id=${currentConversationId}`);
+      await axiosInstance.delete(`/api/messages?conversation_id=${currentConversationId}`);
       setMessages([]);
       loadConversations();
       alert('聊天记录已清空');
@@ -216,7 +233,10 @@ export default function Chat() {
     }
   };
 
-  const currentConversationTitle = conversations.find(c => c.id === currentConversationId)?.title || '加载中...';
+  // 使用 useMemo 优化标题计算
+  const currentConversationTitle = useMemo(() => {
+    return conversations.find(c => c.id === currentConversationId)?.title || '加载中...';
+  }, [conversations, currentConversationId]);
 
   return (
     <div className="fixed inset-0 bg-taiji-gray-100 flex flex-col overflow-hidden">

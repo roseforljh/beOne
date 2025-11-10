@@ -1,19 +1,24 @@
 import { io } from 'socket.io-client';
 
 let socket = null;
+let heartbeatInterval = null;
+let messageQueue = [];
+let batchTimeout = null;
+
+// 心跳配置
+const HEARTBEAT_INTERVAL = 30000; // 30秒
+const BATCH_DELAY = 100; // 100ms批处理延迟
 
 export const connectSocket = (token) => {
   if (socket?.connected) {
     return socket;
   }
 
-  // 判断是否为开发环境（端口5173表示Vite开发服务器）
+  // 判断是否为开发环境
   const isDevelopment = window.location.port === '5173' ||
                         window.location.hostname === 'localhost' ||
                         window.location.hostname === '127.0.0.1';
   
-  // 开发环境：直连5000端口
-  // 生产环境：使用当前域名（nginx代理）
   const socketUrl = isDevelopment
     ? `http://${window.location.hostname}:5000`
     : window.location.origin;
@@ -21,38 +26,114 @@ export const connectSocket = (token) => {
   console.log('Socket连接地址:', socketUrl);
 
   socket = io(socketUrl, {
-    auth: {
-      token
-    },
+    auth: { token },
     transports: ['websocket', 'polling'],
     reconnection: true,
     reconnectionDelay: 1000,
-    reconnectionAttempts: 5
+    reconnectionDelayMax: 5000,
+    reconnectionAttempts: 10,
+    timeout: 20000,
+    // 性能优化配置
+    upgrade: true,
+    rememberUpgrade: true,
+    perMessageDeflate: {
+      threshold: 1024 // 只压缩大于1KB的消息
+    }
   });
 
   socket.on('connect', () => {
     console.log('Socket 连接成功');
+    startHeartbeat();
   });
 
   socket.on('connect_error', (error) => {
     console.error('Socket 连接错误:', error.message);
   });
 
-  socket.on('disconnect', () => {
-    console.log('Socket 断开连接');
+  socket.on('disconnect', (reason) => {
+    console.log('Socket 断开连接:', reason);
+    stopHeartbeat();
+  });
+
+  socket.on('reconnect', (attemptNumber) => {
+    console.log('Socket 重连成功，尝试次数:', attemptNumber);
+  });
+
+  socket.on('reconnect_attempt', (attemptNumber) => {
+    console.log('Socket 尝试重连:', attemptNumber);
+  });
+
+  socket.on('reconnect_error', (error) => {
+    console.error('Socket 重连错误:', error.message);
+  });
+
+  socket.on('reconnect_failed', () => {
+    console.error('Socket 重连失败');
   });
 
   return socket;
 };
 
+// 心跳机制
+const startHeartbeat = () => {
+  stopHeartbeat();
+  heartbeatInterval = setInterval(() => {
+    if (socket?.connected) {
+      socket.emit('ping');
+    }
+  }, HEARTBEAT_INTERVAL);
+};
+
+const stopHeartbeat = () => {
+  if (heartbeatInterval) {
+    clearInterval(heartbeatInterval);
+    heartbeatInterval = null;
+  }
+};
+
 export const disconnectSocket = () => {
   if (socket) {
+    stopHeartbeat();
+    clearBatchTimeout();
     socket.disconnect();
     socket = null;
   }
 };
 
 export const getSocket = () => socket;
+
+// 批处理消息发送
+const processBatchMessages = () => {
+  if (messageQueue.length === 0) return;
+  
+  const messages = [...messageQueue];
+  messageQueue = [];
+  
+  if (socket?.connected) {
+    // 如果有多条消息，批量发送
+    if (messages.length > 1) {
+      socket.emit('batch_messages', messages);
+    } else {
+      // 单条消息直接发送
+      const msg = messages[0];
+      socket.emit(msg.event, msg.data);
+    }
+  }
+};
+
+const clearBatchTimeout = () => {
+  if (batchTimeout) {
+    clearTimeout(batchTimeout);
+    batchTimeout = null;
+  }
+};
+
+const queueMessage = (event, data) => {
+  messageQueue.push({ event, data });
+  
+  clearBatchTimeout();
+  batchTimeout = setTimeout(processBatchMessages, BATCH_DELAY);
+};
 
 export const sendTextMessage = (content, conversationId = null) => {
   if (socket?.connected) {
@@ -66,15 +147,25 @@ export const sendFileMessage = (fileId, conversationId = null) => {
   }
 };
 
+// 优化：防抖输入状态
+let typingTimeout = null;
 export const emitTyping = () => {
   if (socket?.connected) {
+    if (typingTimeout) return; // 防止频繁发送
     socket.emit('typing');
+    typingTimeout = setTimeout(() => {
+      typingTimeout = null;
+    }, 1000);
   }
 };
 
 export const emitStopTyping = () => {
   if (socket?.connected) {
     socket.emit('stop_typing');
+  }
+  if (typingTimeout) {
+    clearTimeout(typingTimeout);
+    typingTimeout = null;
   }
 };
 

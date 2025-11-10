@@ -13,6 +13,19 @@ export const initSocket = (httpServer) => {
     cors: {
       origin: '*',
       methods: ['GET', 'POST']
+    },
+    // 性能优化配置
+    pingTimeout: 60000, // 60秒
+    pingInterval: 25000, // 25秒
+    upgradeTimeout: 10000,
+    maxHttpBufferSize: 1e8, // 100MB
+    transports: ['websocket', 'polling'],
+    allowUpgrades: true,
+    perMessageDeflate: {
+      threshold: 1024 // 只压缩大于1KB的消息
+    },
+    httpCompression: {
+      threshold: 1024
     }
   });
 
@@ -65,6 +78,11 @@ export const initSocket = (httpServer) => {
 
     // 加入用户房间（用于接收针对该用户的消息）
     socket.join(`user_${socket.userId}`);
+    
+    // 心跳响应
+    socket.on('ping', () => {
+      socket.emit('pong');
+    });
 
     // 发送文本消息
     socket.on('send_message', async (data) => {
@@ -240,15 +258,34 @@ export const initSocket = (httpServer) => {
       }
     });
 
+    // 批量消息处理（可选）
+    socket.on('batch_messages', async (messages) => {
+      if (!Array.isArray(messages) || messages.length === 0) return;
+      
+      // 批量处理消息
+      for (const msg of messages) {
+        if (msg.event === 'send_message') {
+          socket.emit('send_message', msg.data);
+        } else if (msg.event === 'send_file_message') {
+          socket.emit('send_file_message', msg.data);
+        }
+      }
+    });
+    
     // 断开连接
-    socket.on('disconnect', () => {
-      console.log(`用户断开: ${socket.username} (${socket.userId})${socket.isGuest ? ' [游客]' : ''}`);
+    socket.on('disconnect', (reason) => {
+      console.log(`用户断开: ${socket.username} (${socket.userId})${socket.isGuest ? ' [游客]' : ''} - 原因: ${reason}`);
       
       // 从在线用户列表中移除
       onlineUsers.delete(socket.id);
       
       // 通知所有 root 用户更新在线列表
       io.emit('online_users_update', Array.from(onlineUsers.values()));
+    });
+    
+    // 错误处理
+    socket.on('error', (error) => {
+      console.error(`Socket错误 [${socket.username}]:`, error);
     });
   });
 

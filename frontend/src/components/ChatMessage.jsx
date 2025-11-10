@@ -1,23 +1,23 @@
-import { useState } from 'react';
-import { motion, AnimatePresence } from 'framer-motion';
+import { useState, memo, useCallback } from 'react';
+import { motion } from 'framer-motion';
 import { formatFileSize, getFileIcon } from '../utils/uploadHelper';
 import { api } from '../utils/api';
 import { recallMessage } from '../utils/socket';
 
-export default function ChatMessage({ message, isOwn, currentSessionId, onRecall }) {
+const ChatMessage = memo(function ChatMessage({ message, isOwn, currentSessionId, onRecall }) {
   // 判断是否是当前会话发送的消息
   // 如果消息没有 session_id（旧消息），默认显示在右边
   const isCurrentSession = !message.session_id || message.session_id === currentSessionId;
   const [showActions, setShowActions] = useState(false);
   const [copied, setCopied] = useState(false);
 
-  const handleDownload = () => {
+  const handleDownload = useCallback(() => {
     if (message.file) {
       window.open(api.getDownloadUrl(message.file.id), '_blank');
     }
-  };
+  }, [message.file]);
 
-  const handleCopy = async () => {
+  const handleCopy = useCallback(async () => {
     try {
       let textToCopy = '';
       
@@ -34,23 +34,23 @@ export default function ChatMessage({ message, isOwn, currentSessionId, onRecall
       console.error('复制失败:', error);
       alert('复制失败');
     }
-  };
+  }, [message.type, message.content, message.file]);
 
-  const handleRecall = () => {
+  const handleRecall = useCallback(() => {
     if (confirm('确定要撤回这条消息吗？')) {
       recallMessage(message.id);
       if (onRecall) {
         onRecall(message.id);
       }
     }
-  };
+  }, [message.id, onRecall]);
 
-  const toggleActions = () => {
+  const toggleActions = useCallback(() => {
     // 移动端点击切换
     if (window.innerWidth < 768) {
       setShowActions(!showActions);
     }
-  };
+  }, [showActions]);
 
   return (
     <motion.div
@@ -156,5 +156,7 @@ export default function ChatMessage({ message, isOwn, currentSessionId, onRecall
       </div>
     </motion.div>
   );
-}
+});
+
+export default ChatMessage;
 

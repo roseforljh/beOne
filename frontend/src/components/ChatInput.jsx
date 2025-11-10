@@ -1,10 +1,10 @@
-import { useState, useRef } from 'react';
+import { useState, useRef, useCallback, memo } from 'react';
 import { motion } from 'framer-motion';
 import { sendTextMessage, sendFileMessage, emitTyping, emitStopTyping } from '../utils/socket';
 import { FileUploader as Uploader, formatFileSize } from '../utils/uploadHelper';
 import FileTypeSelector from './FileTypeSelector';
 
-export default function ChatInput({ conversationId, onFileSent }) {
+const ChatInput = memo(function ChatInput({ conversationId, onFileSent }) {
   const [message, setMessage] = useState('');
   const [uploading, setUploading] = useState(false);
   const [uploadingFiles, setUploadingFiles] = useState([]);
@@ -15,22 +15,22 @@ export default function ChatInput({ conversationId, onFileSent }) {
   const [currentAccept, setCurrentAccept] = useState('*/*');
   const [currentCapture, setCurrentCapture] = useState(null);
 
-  const handleSend = () => {
+  const handleSend = useCallback(() => {
     if (message.trim()) {
       sendTextMessage(message.trim(), conversationId);
       setMessage('');
       emitStopTyping();
     }
-  };
+  }, [message, conversationId]);
 
-  const handleKeyPress = (e) => {
+  const handleKeyPress = useCallback((e) => {
     if (e.key === 'Enter' && !e.shiftKey) {
       e.preventDefault();
       handleSend();
     }
-  };
+  }, [handleSend]);
 
-  const handleChange = (e) => {
+  const handleChange = useCallback((e) => {
     setMessage(e.target.value);
     
     // 发送正在输入事件
@@ -45,9 +45,9 @@ export default function ChatInput({ conversationId, onFileSent }) {
     typingTimeoutRef.current = setTimeout(() => {
       emitStopTyping();
     }, 3000);
-  };
+  }, []);
 
-  const handleFileSelect = async (e) => {
+  const handleFileSelect = useCallback(async (e) => {
     const files = Array.from(e.target.files);
     if (files.length === 0) return;
 
@@ -111,7 +111,7 @@ export default function ChatInput({ conversationId, onFileSent }) {
     if (fileInputRef.current) {
       fileInputRef.current.value = '';
     }
-  };
+  }, [conversationId, onFileSent]);
 
   return (
     <div className="border-t-2 border-taiji-gray-200 bg-taiji-white p-2 md:p-4">
@@ -214,5 +214,7 @@ export default function ChatInput({ conversationId, onFileSent }) {
       </div>
     </div>
   );
-}
+});
+
+export default ChatInput;
 
