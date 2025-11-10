@@ -219,7 +219,7 @@ export default function Chat() {
   const currentConversationTitle = conversations.find(c => c.id === currentConversationId)?.title || '加载中...';
 
   return (
-    <div className="h-screen bg-taiji-gray-100 flex flex-col overflow-hidden">
+    <div className="fixed inset-0 bg-taiji-gray-100 flex flex-col overflow-hidden">
       <Header />
 
       <div className="flex-1 flex overflow-hidden min-h-0">
