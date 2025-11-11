@@ -199,17 +199,33 @@ export const api = {
 
   async toggleVisibility(fileId) {
     const response = await axiosInstance.patch(`/api/files/${fileId}/visibility`);
-    // 清除缓存
+    // 清除所有缓存
     requestCache.delete('files');
     requestCache.delete('public-files');
+    apiCache.delete('files_list');
+    // 清除 IndexedDB 缓存
+    try {
+      await dbCache.deleteCachedResponse('files_list');
+    } catch (err) {
+      console.warn('[IndexedDB] 删除缓存失败:', err);
+    }
     return response.data;
   },
 
   async deleteFile(fileId) {
     const response = await axiosInstance.delete(`/api/files/${fileId}`);
-    // 清除缓存
+    // 清除所有缓存
     requestCache.delete('files');
     requestCache.delete('public-files');
+    apiCache.delete('files_list');
+    // 清除 IndexedDB 缓存
+    try {
+      await dbCache.deleteCachedResponse('files_list');
+    } catch (err) {
+      console.warn('[IndexedDB] 删除缓存失败:', err);
+    }
+    // 清空布隆过滤器（因为布隆过滤器不支持精确删除）
+    fileExistsFilter.clear();
     return response.data;
   },
 
@@ -240,6 +256,15 @@ export const api = {
   // 清除所有缓存
   clearCache() {
     requestCache.clear();
+    apiCache.clear();
+    // 清除 IndexedDB 缓存
+    try {
+      dbCache.clear().catch(err => {
+        console.warn('[IndexedDB] 清空缓存失败:', err);
+      });
+    } catch (err) {
+      console.warn('[IndexedDB] 清空缓存失败:', err);
+    }
   }
 };
 

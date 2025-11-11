@@ -25,6 +25,16 @@ export default defineConfig({
       }
     }
   },
+  preview: {
+    port: 4173,
+    host: '0.0.0.0',
+    allowedHosts: [
+      'one.everytalk.cc',
+      '158.51.78.209',
+      'localhost',
+      '127.0.0.1'
+    ]
+  },
   build: {
     // 设置输出目录
     outDir: 'dist',
