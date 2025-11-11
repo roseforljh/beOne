@@ -11,6 +11,12 @@ backend/database.db
 # Frontend
 frontend/dist/
 
+# Android 密钥文件 (重要!)
+*.keystore
+*.jks
+beone-mobile/android/keystore.properties
+beone-mobile/android/app/*.keystore
+
 # OS
 .DS_Store
 Thumbs.db
