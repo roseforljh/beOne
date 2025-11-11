@@ -60,12 +60,15 @@ self.addEventListener('fetch', (event) => {
           if (request.method === 'GET' && response.status === 200) {
             const responseClone = response.clone();
             caches.open(RUNTIME_CACHE).then((cache) => {
-              cache.put(request, responseClone);
+              cache.put(request, responseClone).catch((err) => {
+                console.warn('[SW] Cache put failed:', err);
+              });
             });
           }
           return response;
         })
-        .catch(() => {
+        .catch((err) => {
+          console.warn('[SW] API request failed:', err);
           return caches.match(request);
         })
     );

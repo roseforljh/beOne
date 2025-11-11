@@ -77,10 +77,16 @@ axiosInstance.interceptors.request.use(
     }
     
     // 调试日志：检查token是否正确传递
-    if (config.headers.Authorization) {
-      console.log('[API] Request with token:', config.headers.Authorization.substring(0, 20) + '...');
-    } else {
-      console.warn('[API] Request without Authorization header');
+    console.log('[API Request]', {
+      method: config.method?.toUpperCase(),
+      url: config.url,
+      hasToken: !!token,
+      tokenPreview: token ? token.substring(0, 30) + '...' : 'none',
+      headers: config.headers
+    });
+    
+    if (!token) {
+      console.error('[API] ⚠️ 没有找到 token，请求可能会失败');
     }
     
     return config;
