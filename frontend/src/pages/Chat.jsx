@@ -150,22 +150,34 @@ export default function Chat() {
       Keyboard.setResizeMode({ mode: 'none' });
       
       Keyboard.addListener('keyboardWillShow', info => {
-        // 键盘弹出时，给聊天容器添加 bottom padding
-        const chatContainer = document.querySelector('[data-chat-container]');
-        if (chatContainer) {
-          chatContainer.style.paddingBottom = `${info.keyboardHeight}px`;
-          chatContainer.style.transition = 'padding-bottom 0.3s ease';
+        console.log('键盘弹出，高度:', info.keyboardHeight);
+        
+        // 找到聊天卡片容器
+        const chatCard = document.querySelector('[data-chat-card]');
+        
+        if (chatCard) {
+          // 禁用过渡动画，直接设置padding，避免"再弹一下"
+          chatCard.style.transition = 'none';
+          chatCard.style.paddingBottom = `${info.keyboardHeight}px`;
+          console.log('已设置 paddingBottom:', info.keyboardHeight);
+          
+          // 强制重绘后再启用过渡
+          requestAnimationFrame(() => {
+            chatCard.style.transition = '';
+          });
         }
-        setTimeout(() => {
-          scrollToBottom(true);
-        }, 100);
       });
       
       Keyboard.addListener('keyboardWillHide', () => {
-        // 键盘隐藏时，移除 padding
-        const chatContainer = document.querySelector('[data-chat-container]');
-        if (chatContainer) {
-          chatContainer.style.paddingBottom = '0px';
+        console.log('键盘隐藏');
+        
+        // 恢复聊天卡片的padding
+        const chatCard = document.querySelector('[data-chat-card]');
+        
+        if (chatCard) {
+          chatCard.style.paddingBottom = '0px';
+          chatCard.style.transition = 'padding-bottom 0.3s ease';
+          console.log('已恢复 paddingBottom');
         }
       });
     }
@@ -175,7 +187,7 @@ export default function Chat() {
         Keyboard.removeAllListeners();
       }
     };
-  }, [scrollToBottom]);
+  }, []);
 
   // 定义Socket事件处理函数
   const handleConnect = useCallback((socket) => {
@@ -315,7 +327,6 @@ export default function Chat() {
 
       {/* 内容区域 - 手动控制 padding */}
       <div
-        data-chat-container
         className="flex-1 flex overflow-hidden min-h-0"
         style={{ paddingTop: 'calc(60px + env(safe-area-inset-top))' }}
       >
@@ -371,7 +382,10 @@ export default function Chat() {
         </AnimatePresence>
 
         <div className="flex-1 flex flex-col lg:flex-row gap-2 md:gap-4 p-2 md:p-4">
-          <div className="flex-1 flex flex-col bg-taiji-white rounded-xl md:rounded-2xl shadow-lg border-2 border-taiji-gray-200 overflow-hidden">
+          <div
+            data-chat-card
+            className="flex-1 flex flex-col bg-taiji-white rounded-xl md:rounded-2xl shadow-lg border-2 border-taiji-gray-200 overflow-hidden"
+          >
             <div className="bg-taiji-black text-taiji-white px-3 md:px-6 py-2 md:py-4 flex items-center justify-between">
               <div className="flex items-center gap-2 md:gap-3">
                 {/* 移动端汉堡按钮 */}
