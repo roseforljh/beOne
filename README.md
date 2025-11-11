@@ -139,12 +139,13 @@ pm2 save
 
 ### 方式二：Docker 部署 🐳
 
-
 **环境要求：**
 - Docker >= 20.10
 - Docker Compose >= 2.0
 
-**部署步骤：**
+#### 标准部署（推荐）
+
+适用于大多数场景,使用 Docker 桥接网络。
 
 ```bash
 # 1. 克隆项目
@@ -172,6 +173,58 @@ chmod +x deploy.sh
 # Windows
 deploy.bat
 ```
+
+#### Host 网络模式部署（高性能）
+
+适用于 VPS 或需要最佳性能的场景,直接使用主机网络。
+
+```bash
+# 1. 克隆项目
+git clone https://github.com/roseforljh/beOne.git
+cd beOne
+
+# 2. 停止旧服务（如果有）
+docker compose -f docker-compose.host.yml down
+
+# 3. 重新构建并启动
+docker compose -f docker-compose.host.yml up -d --build
+
+# 4. 查看日志
+docker compose -f docker-compose.host.yml logs -f
+```
+
+**使用便捷脚本：**
+
+```bash
+# 赋予执行权限
+chmod +x deploy-host.sh
+
+# 启动服务
+./deploy-host.sh up
+
+# 重新构建并启动
+./deploy-host.sh build
+
+# 查看日志
+./deploy-host.sh logs
+
+# 停止服务
+./deploy-host.sh down
+
+# 查看状态
+./deploy-host.sh status
+```
+
+**Host 模式优势：**
+- ⚡ 更高的网络性能（无 NAT 转换）
+- 🚀 更低的延迟
+- 💪 适合高并发场景
+- 🎯 VPS 部署推荐
+
+**注意事项：**
+- Host 模式仅支持 Linux 系统
+- 端口直接绑定到主机（前端 80，后端 5000）
+- 确保端口未被占用
 
 **部署输出示例：**
 ```
