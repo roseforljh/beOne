@@ -80,7 +80,16 @@ axiosInstance.interceptors.request.use(
     const token = localStorage.getItem('token');
     if (token) {
       config.headers.Authorization = `Bearer ${token}`;
-      // 确保在HTTPS环境下也能正确传递token
+    }
+    
+    // 重要：不要覆盖 FormData 的 Content-Type
+    // FormData 需要浏览器自动设置 multipart/form-data 边界
+    if (config.data instanceof FormData) {
+      // 删除默认的 Content-Type，让浏览器自动设置
+      delete config.headers['Content-Type'];
+      console.log('[API Request] FormData请求，删除Content-Type头部');
+    } else {
+      // 非 FormData 请求保持 JSON 格式
       config.headers['Content-Type'] = 'application/json';
     }
     

@@ -155,18 +155,25 @@ export class FileUploader {
     const uploadStartTime = Date.now();
     
     try {
+      console.log('[直接上传] 准备FormData，文件:', this.file.name, '大小:', this.file.size);
+      
       const formData = new FormData();
       formData.append('file', this.file);
       formData.append('filename', this.file.name);
       formData.append('mimetype', this.file.type);
       formData.append('source', this.source);
 
-      console.log('[直接上传] 开始上传...');
+      console.log('[直接上传] FormData创建完成，开始上传...');
+      console.log('[直接上传] FormData内容:', {
+        hasFile: formData.has('file'),
+        filename: this.file.name,
+        mimetype: this.file.type,
+        source: this.source,
+        fileSize: this.file.size
+      });
       
       const response = await api.post('/api/upload/direct', formData, {
-        headers: {
-          'Content-Type': 'multipart/form-data'
-        },
+        // 注意：不要手动设置 Content-Type，让浏览器自动设置 multipart/form-data 边界
         timeout: Capacitor.isNativePlatform() ? 60000 : 30000,
         onUploadProgress: (progressEvent) => {
           if (this.aborted) {
@@ -177,6 +184,8 @@ export class FileUploader {
           if (this.onProgress) {
             this.onProgress(Math.min(progress, 99));
           }
+          
+          console.log(`[直接上传] 上传进度: ${progress.toFixed(2)}% (${progressEvent.loaded}/${progressEvent.total} bytes)`);
         }
       });
 
