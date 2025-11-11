@@ -6,7 +6,9 @@
   "type": "module",
   "scripts": {
     "start": "node src/index.js",
-    "dev": "nodemon src/index.js"
+    "start:cluster": "node src/cluster.js",
+    "dev": "nodemon src/index.js",
+    "dev:cluster": "nodemon src/cluster.js"
   },
   "keywords": [
     "file-transfer",

@@ -1,6 +1,9 @@
 import axios from 'axios';
 import { Capacitor } from '@capacitor/core';
 import { API_CONFIG } from '../config/api.config';
+import { apiCache } from './lruCache';
+import { dbCache } from './indexedDBCache';
+import { fileExistsFilter } from './bloomFilter';
 
 // 根据平台动态设置 baseURL
 const getBaseUrl = () => {
@@ -137,17 +140,49 @@ const cachedRequest = async (key, requestFn, cacheDuration = CACHE_DURATION) => 
 };
 
 export const api = {
-  // 文件相关
+  // 文件相关（使用 LRU 缓存 + IndexedDB）
   async getFiles(useCache = true) {
-    const requestFn = async () => {
-      const response = await axiosInstance.get('/api/files');
-      return response.data.files;
-    };
+    const cacheKey = 'files_list';
     
     if (useCache) {
-      return cachedRequest('files', requestFn);
+      // 1. 先查 LRU 内存缓存（最快）
+      const lruCached = apiCache.get(cacheKey);
+      if (lruCached) {
+        console.log('[LRU Cache HIT] files');
+        return lruCached;
+      }
+
+      // 2. 再查 IndexedDB（次快）
+      try {
+        const dbCached = await dbCache.getCachedResponse(cacheKey);
+        if (dbCached) {
+          console.log('[IndexedDB Cache HIT] files');
+          apiCache.set(cacheKey, dbCached); // 同步到 LRU
+          return dbCached;
+        }
+      } catch (err) {
+        console.warn('[IndexedDB] 读取失败:', err);
+      }
     }
-    return requestFn();
+
+    // 3. 最后查询 API
+    const response = await axiosInstance.get('/api/files');
+    const files = response.data.files;
+
+    if (useCache) {
+      // 缓存到 LRU 和 IndexedDB
+      apiCache.set(cacheKey, files);
+      dbCache.cacheResponse(cacheKey, files, 60000).catch(err => {
+        console.warn('[IndexedDB] 写入失败:', err);
+      });
+
+      // 更新布隆过滤器
+      files.forEach(file => {
+        fileExistsFilter.add(file.id);
+      });
+    }
+
+    return files;
   },
 
   async getPublicFiles(useCache = true) {

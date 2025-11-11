@@ -1,9 +1,8 @@
-import { Network } from '@capacitor/network';
 import { Capacitor } from '@capacitor/core';
 
 /**
  * 网络状态监控器
- * 根据网络状态自动调整应用行为
+ * 使用浏览器原生 API，无需额外依赖
  */
 class NetworkMonitor {
   constructor() {
@@ -17,23 +16,68 @@ class NetworkMonitor {
    * 开始监控网络状态
    */
   async start() {
-    if (!Capacitor.isNativePlatform() || this.isMonitoring) return;
+    if (this.isMonitoring) return;
 
     this.isMonitoring = true;
     console.log('[NetworkMonitor] 开始监控网络状态');
 
     try {
+      // 使用浏览器原生 Network Information API
+      const connection = navigator.connection || navigator.mozConnection || navigator.webkitConnection;
+      
       // 获取当前网络状态
-      const status = await Network.getStatus();
+      const status = {
+        connected: navigator.onLine,
+        connectionType: connection?.effectiveType || (navigator.onLine ? 'wifi' : 'none')
+      };
       this.handleStatusChange(status);
 
-      // 监听网络状态变化
-      Network.addListener('networkStatusChange', (status) => {
-        this.handleStatusChange(status);
-      });
+      // 监听在线/离线事件
+      window.addEventListener('online', this.handleOnlineEvent.bind(this));
+      window.addEventListener('offline', this.handleOfflineEvent.bind(this));
+
+      // 监听连接类型变化（如果支持）
+      if (connection) {
+        connection.addEventListener('change', this.handleConnectionChange.bind(this));
+      }
     } catch (error) {
       console.error('[NetworkMonitor] 启动失败:', error);
     }
+  }
+
+  /**
+   * 处理在线事件
+   */
+  handleOnlineEvent() {
+    const connection = navigator.connection || navigator.mozConnection || navigator.webkitConnection;
+    const status = {
+      connected: true,
+      connectionType: connection?.effectiveType || 'wifi'
+    };
+    this.handleStatusChange(status);
+  }
+
+  /**
+   * 处理离线事件
+   */
+  handleOfflineEvent() {
+    const status = {
+      connected: false,
+      connectionType: 'none'
+    };
+    this.handleStatusChange(status);
+  }
+
+  /**
+   * 处理连接类型变化
+   */
+  handleConnectionChange() {
+    const connection = navigator.connection || navigator.mozConnection || navigator.webkitConnection;
+    const status = {
+      connected: navigator.onLine,
+      connectionType: connection?.effectiveType || 'unknown'
+    };
+    this.handleStatusChange(status);
   }
 
   /**
@@ -42,7 +86,14 @@ class NetworkMonitor {
   stop() {
     if (!this.isMonitoring) return;
 
-    Network.removeAllListeners();
+    window.removeEventListener('online', this.handleOnlineEvent);
+    window.removeEventListener('offline', this.handleOfflineEvent);
+    
+    const connection = navigator.connection || navigator.mozConnection || navigator.webkitConnection;
+    if (connection) {
+      connection.removeEventListener('change', this.handleConnectionChange);
+    }
+
     this.isMonitoring = false;
     console.log('[NetworkMonitor] 停止监控网络状态');
   }
@@ -72,12 +123,11 @@ class NetworkMonitor {
   updateNetworkQuality(status) {
     if (!status.connected) {
       this.networkQuality = 'offline';
-    } else if (status.connectionType === 'wifi') {
+    } else if (status.connectionType === 'wifi' || status.connectionType === '4g') {
       this.networkQuality = 'high';
-    } else if (status.connectionType === 'cellular') {
-      // 移动网络，质量中等
+    } else if (status.connectionType === '3g' || status.connectionType === 'cellular') {
       this.networkQuality = 'medium';
-    } else if (status.connectionType === '2g') {
+    } else if (status.connectionType === '2g' || status.connectionType === 'slow-2g') {
       this.networkQuality = 'low';
     } else {
       this.networkQuality = 'medium';
@@ -125,17 +175,17 @@ class NetworkMonitor {
     window.isOffline = false;
 
     // 根据网络类型调整策略
-    if (status.connectionType === 'wifi') {
-      // WiFi: 使用高质量资源
+    if (status.connectionType === 'wifi' || status.connectionType === '4g') {
+      // WiFi/4G: 使用高质量资源
       window.imageQuality = 'high';
       window.videoQuality = 'high';
-      console.log('[NetworkMonitor] WiFi 连接，使用高质量资源');
-    } else if (status.connectionType === 'cellular') {
-      // 移动网络: 使用中等质量资源
+      console.log('[NetworkMonitor] 高速网络，使用高质量资源');
+    } else if (status.connectionType === '3g' || status.connectionType === 'cellular') {
+      // 3G/移动网络: 使用中等质量资源
       window.imageQuality = 'medium';
       window.videoQuality = 'medium';
       console.log('[NetworkMonitor] 移动网络，使用中等质量资源');
-    } else if (status.connectionType === '2g') {
+    } else if (status.connectionType === '2g' || status.connectionType === 'slow-2g') {
       // 2G 网络: 使用低质量资源
       window.imageQuality = 'low';
       window.videoQuality = 'low';
@@ -217,14 +267,15 @@ class NetworkMonitor {
    * 是否是移动网络
    */
   isCellular() {
-    return this.currentStatus?.connectionType === 'cellular';
+    const type = this.currentStatus?.connectionType;
+    return type === 'cellular' || type === '2g' || type === '3g' || type === '4g';
   }
 }
 
 // 导出单例
 export const networkMonitor = new NetworkMonitor();
 
-// 自动启动监控（仅在移动端）
-if (Capacitor.isNativePlatform()) {
+// 自动启动监控
+if (typeof window !== 'undefined') {
   networkMonitor.start();
 }

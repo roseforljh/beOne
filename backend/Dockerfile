@@ -1,6 +1,9 @@
 # 使用 Node.js 官方镜像
 FROM node:18-alpine
 
+# 安装构建工具（用于编译 native 模块）
+RUN apk add --no-cache python3 make g++
+
 # 设置工作目录
 WORKDIR /app
 

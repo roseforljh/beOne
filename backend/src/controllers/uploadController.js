@@ -3,6 +3,8 @@ import path from 'path';
 import { fileURLToPath } from 'url';
 import { db } from '../config/database.js';
 import sharp from 'sharp';
+import { Worker } from 'worker_threads';
+import os from 'os';
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
@@ -106,13 +108,27 @@ export const completeUpload = async (req, res) => {
     const stats = fs.statSync(finalPath);
     const fileSize = stats.size;
 
-    // 如果是图片，生成缩略图
+    // 如果是图片，并行生成多个尺寸的缩略图（充分利用 CPU）
     if (mimetype && mimetype.startsWith('image/')) {
       try {
         const thumbPath = path.join(thumbsDir, uniqueFilename);
-        await sharp(finalPath)
-          .resize(300, 300, { fit: 'inside' })
-          .toFile(thumbPath);
+        
+        // 并行生成多个尺寸（利用多核 CPU）
+        await Promise.all([
+          // 标准缩略图 300x300
+          sharp(finalPath)
+            .resize(300, 300, { fit: 'inside' })
+            .jpeg({ quality: 80, progressive: true })
+            .toFile(thumbPath),
+          
+          // 可选：生成更小的预览图 100x100（用于列表）
+          sharp(finalPath)
+            .resize(100, 100, { fit: 'cover' })
+            .jpeg({ quality: 70, progressive: true })
+            .toFile(thumbPath.replace(path.extname(thumbPath), '_small' + path.extname(thumbPath)))
+        ]);
+        
+        console.log('缩略图生成完成（并行处理）');
       } catch (thumbErr) {
         console.error('生成缩略图失败:', thumbErr);
       }

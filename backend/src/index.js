@@ -3,8 +3,10 @@ import { createServer } from 'http';
 import cors from 'cors';
 import dotenv from 'dotenv';
 import compression from 'compression';
+import cluster from 'cluster';
 import { initDatabase } from './config/database.js';
 import { initSocket } from './config/socket.js';
+import { cacheMiddleware } from './middleware/cache.js';
 import authRoutes from './routes/auth.js';
 import uploadRoutes from './routes/upload.js';
 import filesRoutes from './routes/files.js';
@@ -19,7 +21,7 @@ const httpServer = createServer(app);
 const PORT = process.env.PORT || 5000;
 
 // 性能优化中间件
-// 1. 启用 gzip 压缩
+// 1. 启用 gzip 压缩（提高压缩级别以充分利用 CPU）
 app.use(compression({
   filter: (req, res) => {
     if (req.headers['x-no-compression']) {
@@ -27,8 +29,8 @@ app.use(compression({
     }
     return compression.filter(req, res);
   },
-  level: 6, // 压缩级别 (0-9)
-  threshold: 1024 // 只压缩大于1KB的响应
+  level: 9, // 最高压缩级别，充分利用 CPU
+  threshold: 512 // 降低阈值，压缩更多内容
 }));
 
 // 2. CORS 配置优化
@@ -81,13 +83,13 @@ if (process.env.NODE_ENV !== 'production') {
   });
 }
 
-// 路由
+// 路由（添加缓存中间件）
 app.use('/api/auth', authRoutes);
 app.use('/api/upload', uploadRoutes);
-app.use('/api/files', filesRoutes);
-app.use('/api/messages', messagesRoutes);
+app.use('/api/files', cacheMiddleware(60000), filesRoutes); // 文件列表缓存 60 秒
+app.use('/api/messages', cacheMiddleware(10000), messagesRoutes); // 消息缓存 10 秒
 app.use('/api/user', userRoutes);
-app.use('/api/conversations', conversationsRoutes);
+app.use('/api/conversations', cacheMiddleware(30000), conversationsRoutes); // 会话列表缓存 30 秒
 
 // 健康检查
 app.get('/api/health', (req, res) => {
@@ -104,12 +106,18 @@ initDatabase()
     app.set('io', io);
 
     httpServer.listen(PORT, '0.0.0.0', () => {
-      console.log(`\n🎯 太极文件传输系统后端启动成功`);
+      const workerId = cluster.worker ? cluster.worker.id : 'Master';
+      const pid = process.pid;
+      console.log(`
+🎯 太极文件传输系统后端启动成功 [Worker ${workerId}, PID: ${pid}]`);
       console.log(`📡 服务器运行在: http://localhost:${PORT}`);
       console.log(`📱 局域网访问: http://192.168.0.101:${PORT}`);
       console.log(`💬 WebSocket 实时通信已启用`);
       console.log(`🔐 默认账号: root / 123456`);
-      console.log(`👤 游客模式已启用\n`);
+      console.log(`👤 游客模式已启用`);
+      console.log(`⚡ 响应缓存已启用`);
+      console.log(`🚀 高性能模式已启用
+`);
     });
   })
   .catch((err) => {
