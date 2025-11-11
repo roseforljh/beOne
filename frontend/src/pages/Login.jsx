@@ -15,6 +15,11 @@ export default function Login() {
   const { login, guestLogin } = useAuth();
   const navigate = useNavigate();
   const isAndroid = Capacitor.isNativePlatform();
+  
+  // 输入法组合状态管理
+  const [isComposingUsername, setIsComposingUsername] = useState(false);
+  const [isComposingPassword, setIsComposingPassword] = useState(false);
+  const [isComposingApiUrl, setIsComposingApiUrl] = useState(false);
 
   // 从 localStorage 恢复 API 地址
   useEffect(() => {
@@ -28,6 +33,60 @@ export default function Login() {
       }
     }
   }, [isAndroid]);
+
+  // 处理用户名输入
+  const handleUsernameChange = (e) => {
+    if (!isComposingUsername) {
+      setUsername(e.target.value);
+    }
+  };
+
+  // 处理密码输入
+  const handlePasswordChange = (e) => {
+    if (!isComposingPassword) {
+      setPassword(e.target.value);
+    }
+  };
+
+  // 处理API地址输入
+  const handleApiUrlChange = (e) => {
+    if (!isComposingApiUrl) {
+      setApiUrl(e.target.value);
+    }
+  };
+
+  // 用户名输入法组合开始
+  const handleUsernameCompositionStart = () => {
+    setIsComposingUsername(true);
+  };
+
+  // 用户名输入法组合结束
+  const handleUsernameCompositionEnd = (e) => {
+    setIsComposingUsername(false);
+    setUsername(e.target.value);
+  };
+
+  // 密码输入法组合开始
+  const handlePasswordCompositionStart = () => {
+    setIsComposingPassword(true);
+  };
+
+  // 密码输入法组合结束
+  const handlePasswordCompositionEnd = (e) => {
+    setIsComposingPassword(false);
+    setPassword(e.target.value);
+  };
+
+  // API地址输入法组合开始
+  const handleApiUrlCompositionStart = () => {
+    setIsComposingApiUrl(true);
+  };
+
+  // API地址输入法组合结束
+  const handleApiUrlCompositionEnd = (e) => {
+    setIsComposingApiUrl(false);
+    setApiUrl(e.target.value);
+  };
 
   const handleSubmit = async (e) => {
     e.preventDefault();
@@ -104,7 +163,9 @@ export default function Login() {
                 <input
                   type="text"
                   value={apiUrl}
-                  onChange={(e) => setApiUrl(e.target.value)}
+                  onChange={handleApiUrlChange}
+                  onCompositionStart={handleApiUrlCompositionStart}
+                  onCompositionEnd={handleApiUrlCompositionEnd}
                   className="input-field"
                   placeholder="例如: http://192.168.0.100:5000"
                   required
@@ -122,7 +183,9 @@ export default function Login() {
               <input
                 type="text"
                 value={username}
-                onChange={(e) => setUsername(e.target.value)}
+                onChange={handleUsernameChange}
+                onCompositionStart={handleUsernameCompositionStart}
+                onCompositionEnd={handleUsernameCompositionEnd}
                 className="input-field"
                 placeholder="请输入用户名"
                 required
@@ -136,7 +199,9 @@ export default function Login() {
               <input
                 type="password"
                 value={password}
-                onChange={(e) => setPassword(e.target.value)}
+                onChange={handlePasswordChange}
+                onCompositionStart={handlePasswordCompositionStart}
+                onCompositionEnd={handlePasswordCompositionEnd}
                 className="input-field"
                 placeholder="请输入密码"
                 required
