@@ -91,10 +91,20 @@ export default function FileUploader({ onUploadComplete }) {
   };
 
   const handleUpload = async () => {
+    console.log('[FileUploader] handleUpload 被调用');
+    const clickTime = Date.now();
+    
     if (selectedFiles.length === 0) return;
 
+    console.log('[FileUploader] 设置 uploading 状态为 true');
     setUploading(true);
     uploadersRef.current = [];
+
+    // 使用 setTimeout 确保状态更新后再开始上传
+    // 这样可以让 UI 先显示"上传中"状态
+    await new Promise(resolve => setTimeout(resolve, 0));
+    
+    console.log(`[FileUploader] 开始创建上传器，距离点击: ${Date.now() - clickTime}ms`);
 
     // 并发上传所有文件
     const uploadPromises = selectedFiles.map((file, index) => {
@@ -114,6 +124,8 @@ export default function FileUploader({ onUploadComplete }) {
         result
       }));
     });
+
+    console.log(`[FileUploader] 上传器创建完成，开始上传，距离点击: ${Date.now() - clickTime}ms`);
 
     try {
       const results = await Promise.all(uploadPromises);
@@ -145,6 +157,7 @@ export default function FileUploader({ onUploadComplete }) {
       setUploadProgress({});
       uploadersRef.current = [];
     } catch (error) {
+      console.error('[FileUploader] 上传错误:', error);
       alert('上传过程中出现错误');
     }
 

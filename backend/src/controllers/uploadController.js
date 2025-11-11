@@ -108,35 +108,9 @@ export const completeUpload = async (req, res) => {
     const stats = fs.statSync(finalPath);
     const fileSize = stats.size;
 
-    // 如果是图片，并行生成多个尺寸的缩略图（充分利用 CPU）
-    if (mimetype && mimetype.startsWith('image/')) {
-      try {
-        const thumbPath = path.join(thumbsDir, uniqueFilename);
-        
-        // 并行生成多个尺寸（利用多核 CPU）
-        await Promise.all([
-          // 标准缩略图 300x300
-          sharp(finalPath)
-            .resize(300, 300, { fit: 'inside' })
-            .jpeg({ quality: 80, progressive: true })
-            .toFile(thumbPath),
-          
-          // 可选：生成更小的预览图 100x100（用于列表）
-          sharp(finalPath)
-            .resize(100, 100, { fit: 'cover' })
-            .jpeg({ quality: 70, progressive: true })
-            .toFile(thumbPath.replace(path.extname(thumbPath), '_small' + path.extname(thumbPath)))
-        ]);
-        
-        console.log('缩略图生成完成（并行处理）');
-      } catch (thumbErr) {
-        console.error('生成缩略图失败:', thumbErr);
-      }
-    }
-
     // 保存文件信息到数据库
     db.run(
-      `INSERT INTO files (filename, original_name, mimetype, size, path, user_id, is_public) 
+      `INSERT INTO files (filename, original_name, mimetype, size, path, user_id, is_public)
        VALUES (?, ?, ?, ?, ?, ?, 0)`,
       [uniqueFilename, filename, mimetype || 'application/octet-stream', fileSize, finalPath, userId],
       function(err) {
@@ -157,6 +131,12 @@ export const completeUpload = async (req, res) => {
           created_at: new Date().toISOString()
         };
 
+        // 立即响应客户端，不等待缩略图生成
+        res.json({
+          success: true,
+          file: newFile
+        });
+
         // 广播文件上传完成事件到该用户的所有会话
         const io = req.app.get('io');
         if (io) {
@@ -167,15 +147,122 @@ export const completeUpload = async (req, res) => {
           console.error('io 实例不存在，无法广播文件上传事件');
         }
 
-        res.json({
-          success: true,
-          file: newFile
-        });
+        // 异步生成缩略图（不阻塞响应）
+        if (mimetype && mimetype.startsWith('image/')) {
+          const thumbPath = path.join(thumbsDir, uniqueFilename);
+          
+          // 使用 setImmediate 确保在下一个事件循环中执行
+          setImmediate(async () => {
+            try {
+              await Promise.all([
+                // 标准缩略图 300x300
+                sharp(finalPath)
+                  .resize(300, 300, { fit: 'inside' })
+                  .jpeg({ quality: 80, progressive: true })
+                  .toFile(thumbPath),
+                
+                // 小预览图 100x100
+                sharp(finalPath)
+                  .resize(100, 100, { fit: 'cover' })
+                  .jpeg({ quality: 70, progressive: true })
+                  .toFile(thumbPath.replace(path.extname(thumbPath), '_small' + path.extname(thumbPath)))
+              ]);
+              
+              console.log('缩略图生成完成（异步后台处理）');
+            } catch (thumbErr) {
+              console.error('生成缩略图失败:', thumbErr);
+            }
+          });
+        }
       }
     );
   } catch (error) {
     console.error('合并文件失败:', error);
     res.status(500).json({ error: '合并文件失败' });
+  }
+};
+
+// 直接上传（小文件，不分片）
+export const directUpload = async (req, res) => {
+  const userId = req.user.id;
+  const file = req.file;
+  const { filename, mimetype } = req.body;
+
+  if (!file) {
+    return res.status(400).json({ error: '没有上传文件' });
+  }
+
+  try {
+    const finalPath = file.path;
+    const uniqueFilename = file.filename;
+    const fileSize = file.size;
+    const originalName = filename || file.originalname;
+    const fileMimetype = mimetype || file.mimetype || 'application/octet-stream';
+
+    // 保存文件信息到数据库
+    db.run(
+      `INSERT INTO files (filename, original_name, mimetype, size, path, user_id, is_public)
+       VALUES (?, ?, ?, ?, ?, ?, 0)`,
+      [uniqueFilename, originalName, fileMimetype, fileSize, finalPath, userId],
+      function(err) {
+        if (err) {
+          console.error('保存文件记录失败:', err);
+          return res.status(500).json({ error: '保存文件记录失败' });
+        }
+
+        const newFile = {
+          id: this.lastID,
+          filename: uniqueFilename,
+          original_name: originalName,
+          size: fileSize,
+          mimetype: fileMimetype,
+          is_public: 0,
+          created_at: new Date().toISOString()
+        };
+
+        // 立即响应客户端
+        res.json({
+          success: true,
+          file: newFile
+        });
+
+        // 广播文件上传完成事件
+        const io = req.app.get('io');
+        if (io) {
+          const roomName = `user_${userId}`;
+          console.log('[直接上传] 广播文件上传事件到房间:', roomName, '文件:', newFile.original_name);
+          io.to(roomName).emit('file_uploaded', newFile);
+        }
+
+        // 异步生成缩略图（不阻塞响应）
+        if (fileMimetype && fileMimetype.startsWith('image/')) {
+          const thumbPath = path.join(thumbsDir, uniqueFilename);
+          
+          setImmediate(async () => {
+            try {
+              await Promise.all([
+                sharp(finalPath)
+                  .resize(300, 300, { fit: 'inside' })
+                  .jpeg({ quality: 80, progressive: true })
+                  .toFile(thumbPath),
+                
+                sharp(finalPath)
+                  .resize(100, 100, { fit: 'cover' })
+                  .jpeg({ quality: 70, progressive: true })
+                  .toFile(thumbPath.replace(path.extname(thumbPath), '_small' + path.extname(thumbPath)))
+              ]);
+              
+              console.log('[直接上传] 缩略图生成完成');
+            } catch (thumbErr) {
+              console.error('[直接上传] 生成缩略图失败:', thumbErr);
+            }
+          });
+        }
+      }
+    );
+  } catch (error) {
+    console.error('[直接上传] 失败:', error);
+    res.status(500).json({ error: '上传失败' });
   }
 };
 
