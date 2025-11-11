@@ -12,8 +12,17 @@ const getBaseUrl = () => {
     const savedApiUrl = localStorage.getItem('apiUrl');
     return savedApiUrl || API_CONFIG.API_URL;
   }
-  // 在 Web 环境中，使用相对路径，依赖 Vite 代理或部署环境的配置
-  return '';
+  // 在 Web 环境中
+  // 开发模式：使用相对路径（Vite 代理会处理）
+  // 生产模式：使用当前域名的 5000 端口
+  if (import.meta.env.DEV) {
+    return ''; // 开发模式使用 Vite 代理
+  } else {
+    // 生产模式：使用当前域名 + 5000 端口
+    const protocol = window.location.protocol;
+    const hostname = window.location.hostname;
+    return `${protocol}//${hostname}:5000`;
+  }
 };
 
 // 动态获取 API_BASE_URL，支持运行时更新
@@ -22,7 +31,14 @@ const getApiBaseUrl = () => {
     const savedApiUrl = localStorage.getItem('apiUrl');
     return savedApiUrl || API_CONFIG.API_URL;
   }
-  return '';
+  // Web 环境：与 getBaseUrl 保持一致
+  if (import.meta.env.DEV) {
+    return '';
+  } else {
+    const protocol = window.location.protocol;
+    const hostname = window.location.hostname;
+    return `${protocol}//${hostname}:5000`;
+  }
 };
 
 const API_BASE_URL = getBaseUrl();
