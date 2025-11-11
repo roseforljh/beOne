@@ -3,6 +3,10 @@ import ReactDOM from 'react-dom/client'
 import App from './App.jsx'
 import './index.css'
 
+// 导入性能监控工具（仅在移动端自动启动）
+import './utils/memoryMonitor.js'
+import './utils/networkMonitor.js'
+
 // 全局健壮性补丁：清理 LocalStorage 中潜在的 "undefined"/损坏 JSON，避免第三方库 JSON.parse 崩溃
 (() => {
   try {
