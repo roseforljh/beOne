@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { motion } from 'framer-motion';
 import { Capacitor } from '@capacitor/core';
@@ -15,6 +15,11 @@ export default function Login() {
   const { login, guestLogin } = useAuth();
   const navigate = useNavigate();
   const isAndroid = Capacitor.isNativePlatform();
+  
+  // 使用 useRef 来直接引用输入框
+  const usernameInputRef = useRef(null);
+  const passwordInputRef = useRef(null);
+  const apiUrlInputRef = useRef(null);
   
   // 输入法组合状态管理
   const [isComposingUsername, setIsComposingUsername] = useState(false);
@@ -36,56 +41,79 @@ export default function Login() {
 
   // 处理用户名输入
   const handleUsernameChange = (e) => {
-    if (!isComposingUsername) {
-      setUsername(e.target.value);
-    }
+    const value = e.target.value;
+    console.log('用户名输入:', value);
+    setUsername(value);
   };
 
   // 处理密码输入
   const handlePasswordChange = (e) => {
-    if (!isComposingPassword) {
-      setPassword(e.target.value);
-    }
+    const value = e.target.value;
+    console.log('密码输入:', value);
+    setPassword(value);
   };
 
   // 处理API地址输入
   const handleApiUrlChange = (e) => {
-    if (!isComposingApiUrl) {
-      setApiUrl(e.target.value);
-    }
+    const value = e.target.value;
+    console.log('API地址输入:', value);
+    setApiUrl(value);
   };
 
   // 用户名输入法组合开始
   const handleUsernameCompositionStart = () => {
+    console.log('用户名输入法组合开始');
     setIsComposingUsername(true);
   };
 
   // 用户名输入法组合结束
   const handleUsernameCompositionEnd = (e) => {
+    console.log('用户名输入法组合结束:', e.target.value);
     setIsComposingUsername(false);
     setUsername(e.target.value);
   };
 
   // 密码输入法组合开始
   const handlePasswordCompositionStart = () => {
+    console.log('密码输入法组合开始');
     setIsComposingPassword(true);
   };
 
   // 密码输入法组合结束
   const handlePasswordCompositionEnd = (e) => {
+    console.log('密码输入法组合结束:', e.target.value);
     setIsComposingPassword(false);
     setPassword(e.target.value);
   };
 
   // API地址输入法组合开始
   const handleApiUrlCompositionStart = () => {
+    console.log('API地址输入法组合开始');
     setIsComposingApiUrl(true);
   };
 
   // API地址输入法组合结束
   const handleApiUrlCompositionEnd = (e) => {
+    console.log('API地址输入法组合结束:', e.target.value);
     setIsComposingApiUrl(false);
     setApiUrl(e.target.value);
+  };
+
+  // 添加用户名输入框失焦处理
+  const handleUsernameBlur = (e) => {
+    console.log('用户名输入框失焦:', e.target.value);
+    // 确保用户名状态正确
+    setUsername(e.target.value);
+  };
+
+  // 添加密码输入框聚焦处理
+  const handlePasswordFocus = () => {
+    console.log('密码输入框聚焦, 当前用户名:', username);
+    // 确保用户名输入框的值与状态一致
+    if (usernameInputRef.current && usernameInputRef.current.value !== username) {
+      console.log('修复用户名输入框值:', usernameInputRef.current.value, '->', username);
+      usernameInputRef.current.value = username;
+    }
   };
 
   const handleSubmit = async (e) => {
@@ -93,17 +121,24 @@ export default function Login() {
     setError('');
     setLoading(true);
 
+    // 从 ref 获取当前值，而不是从状态
+    const currentUsername = usernameInputRef.current?.value || '';
+    const currentPassword = passwordInputRef.current?.value || '';
+    const currentApiUrl = apiUrlInputRef.current?.value || '';
+
+    console.log('提交表单:', { username: currentUsername, password: currentPassword, apiUrl: currentApiUrl });
+
     // 在安卓端,先保存 API 地址
     if (isAndroid) {
-      if (!apiUrl.trim()) {
+      if (!currentApiUrl.trim()) {
         setError('请输入 API 地址');
         setLoading(false);
         return;
       }
-      localStorage.setItem('apiUrl', apiUrl.trim());
+      localStorage.setItem('apiUrl', currentApiUrl.trim());
     }
 
-    const result = await login(username, password);
+    const result = await login(currentUsername, currentPassword);
 
     if (result.success) {
       navigate('/files');
@@ -161,8 +196,9 @@ export default function Login() {
                   API 地址
                 </label>
                 <input
+                  ref={apiUrlInputRef}
                   type="text"
-                  value={apiUrl}
+                  defaultValue={apiUrl}
                   onChange={handleApiUrlChange}
                   onCompositionStart={handleApiUrlCompositionStart}
                   onCompositionEnd={handleApiUrlCompositionEnd}
@@ -181,11 +217,13 @@ export default function Login() {
                 用户名
               </label>
               <input
+                ref={usernameInputRef}
                 type="text"
-                value={username}
+                defaultValue={username}
                 onChange={handleUsernameChange}
                 onCompositionStart={handleUsernameCompositionStart}
                 onCompositionEnd={handleUsernameCompositionEnd}
+                onBlur={handleUsernameBlur}
                 className="input-field"
                 placeholder="请输入用户名"
                 required
@@ -197,11 +235,13 @@ export default function Login() {
                 密码
               </label>
               <input
+                ref={passwordInputRef}
                 type="password"
-                value={password}
+                defaultValue={password}
                 onChange={handlePasswordChange}
                 onCompositionStart={handlePasswordCompositionStart}
                 onCompositionEnd={handlePasswordCompositionEnd}
+                onFocus={handlePasswordFocus}
                 className="input-field"
                 placeholder="请输入密码"
                 required
