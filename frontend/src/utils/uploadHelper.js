@@ -16,10 +16,11 @@ const MAX_CONCURRENT_UPLOADS = Capacitor.isNativePlatform()
   : 6; // Web端：6个并发
 
 export class FileUploader {
-  constructor(file, onProgress, onSpeedUpdate) {
+  constructor(file, onProgress, onSpeedUpdate, source = 'user') {
     this.file = file;
     this.onProgress = onProgress;
     this.onSpeedUpdate = onSpeedUpdate;
+    this.source = source; // 'user' = 我的文件页面, 'chat' = 会话中上传
     this.uploadId = null;
     this.totalChunks = Math.ceil(file.size / CHUNK_SIZE);
     this.uploadedBytes = 0;
@@ -80,7 +81,8 @@ export class FileUploader {
         filename: this.file.name,
         totalChunks: this.totalChunks,
         fileSize: this.file.size,
-        mimetype: this.file.type
+        mimetype: this.file.type,
+        source: this.source
       });
       console.log(`[步骤1] 初始化完成，耗时: ${Date.now() - initStartTime}ms, uploadId: ${initResponse.data.uploadId}`);
 
@@ -103,7 +105,8 @@ export class FileUploader {
         uploadId: this.uploadId,
         filename: this.file.name,
         totalChunks: this.totalChunks,
-        mimetype: this.file.type
+        mimetype: this.file.type,
+        source: this.source
       });
       console.log(`[步骤3] 完成上传，耗时: ${Date.now() - completeStartTime}ms`);
 
@@ -156,6 +159,7 @@ export class FileUploader {
       formData.append('file', this.file);
       formData.append('filename', this.file.name);
       formData.append('mimetype', this.file.type);
+      formData.append('source', this.source);
 
       console.log('[直接上传] 开始上传...');
       

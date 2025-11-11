@@ -92,12 +92,18 @@ export const initDatabase = async () => {
           path TEXT NOT NULL,
           user_id INTEGER NOT NULL,
           is_public INTEGER DEFAULT 0,
+          source TEXT DEFAULT 'user',
           created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
           updated_at DATETIME DEFAULT CURRENT_TIMESTAMP,
           FOREIGN KEY (user_id) REFERENCES users (id)
         )
       `, (err) => {
         if (err) console.error('创建文件表失败:', err);
+        
+        // 尝试添加 source 字段（如果表已存在但没有该字段）
+        db.run(`ALTER TABLE files ADD COLUMN source TEXT DEFAULT 'user'`, (err) => {
+          // 忽略错误（字段可能已存在）
+        });
       });
 
       // 创建分片表

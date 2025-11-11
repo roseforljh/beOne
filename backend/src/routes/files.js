@@ -37,7 +37,7 @@ const checkFileAccess = (file, req) => {
 // 获取公开文件列表（无需认证）- 必须在 /:id 路由之前
 router.get('/public', (req, res) => {
   db.all(
-    'SELECT id, filename, original_name, mimetype, size, created_at FROM files WHERE is_public = 1 ORDER BY created_at DESC',
+    'SELECT id, filename, original_name, mimetype, size, created_at FROM files WHERE is_public = 1 AND source = "user" ORDER BY created_at DESC',
     [],
     (err, files) => {
       if (err) {
@@ -54,10 +54,10 @@ router.get('/', authenticateToken, (req, res) => {
   const userId = req.user.id;
   const isGuest = req.user.is_guest;
 
-  // 游客只能看到公共文件
+  // 游客只能看到公共文件（仅显示用户主动上传的文件）
   if (isGuest) {
     db.all(
-      'SELECT id, filename, original_name, mimetype, size, is_public, created_at FROM files WHERE is_public = 1 ORDER BY created_at DESC',
+      'SELECT id, filename, original_name, mimetype, size, is_public, created_at FROM files WHERE is_public = 1 AND source = "user" ORDER BY created_at DESC',
       [],
       (err, files) => {
         if (err) {
@@ -68,9 +68,9 @@ router.get('/', authenticateToken, (req, res) => {
       }
     );
   } else {
-    // 普通用户看到自己的文件
+    // 普通用户看到自己主动上传的文件（不包括会话中的文件）
     db.all(
-      'SELECT id, filename, original_name, mimetype, size, is_public, created_at FROM files WHERE user_id = ? ORDER BY created_at DESC',
+      'SELECT id, filename, original_name, mimetype, size, is_public, created_at FROM files WHERE user_id = ? AND source = "user" ORDER BY created_at DESC',
       [userId],
       (err, files) => {
         if (err) {

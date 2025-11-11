@@ -111,7 +111,8 @@ const ChatInput = memo(function ChatInput({ conversationId, onFileSent }) {
             ...prev,
             [index]: speed
           }));
-        }
+        },
+        'chat' // 会话中上传的文件，source='chat'
       );
       
       uploadersRef.current[index] = uploader;

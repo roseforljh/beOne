@@ -66,12 +66,15 @@ export const uploadChunk = (req, res) => {
 
 // 完成上传，合并分片
 export const completeUpload = async (req, res) => {
-  const { uploadId, filename, totalChunks, mimetype } = req.body;
+  const { uploadId, filename, totalChunks, mimetype, source } = req.body;
   const userId = req.user.id;
 
   if (!uploadId || !filename || !totalChunks) {
     return res.status(400).json({ error: '缺少必要参数' });
   }
+  
+  // source: 'user' = 我的文件页面上传, 'chat' = 会话中上传
+  const fileSource = source || 'user';
 
   try {
     // 生成唯一文件名
@@ -110,9 +113,9 @@ export const completeUpload = async (req, res) => {
 
     // 保存文件信息到数据库
     db.run(
-      `INSERT INTO files (filename, original_name, mimetype, size, path, user_id, is_public)
-       VALUES (?, ?, ?, ?, ?, ?, 0)`,
-      [uniqueFilename, filename, mimetype || 'application/octet-stream', fileSize, finalPath, userId],
+      `INSERT INTO files (filename, original_name, mimetype, size, path, user_id, is_public, source)
+       VALUES (?, ?, ?, ?, ?, ?, 0, ?)`,
+      [uniqueFilename, filename, mimetype || 'application/octet-stream', fileSize, finalPath, userId, fileSource],
       function(err) {
         if (err) {
           return res.status(500).json({ error: '保存文件记录失败' });
@@ -186,11 +189,14 @@ export const completeUpload = async (req, res) => {
 export const directUpload = async (req, res) => {
   const userId = req.user.id;
   const file = req.file;
-  const { filename, mimetype } = req.body;
+  const { filename, mimetype, source } = req.body;
 
   if (!file) {
     return res.status(400).json({ error: '没有上传文件' });
   }
+  
+  // source: 'user' = 我的文件页面上传, 'chat' = 会话中上传
+  const fileSource = source || 'user';
 
   try {
     const finalPath = file.path;
@@ -201,9 +207,9 @@ export const directUpload = async (req, res) => {
 
     // 保存文件信息到数据库
     db.run(
-      `INSERT INTO files (filename, original_name, mimetype, size, path, user_id, is_public)
-       VALUES (?, ?, ?, ?, ?, ?, 0)`,
-      [uniqueFilename, originalName, fileMimetype, fileSize, finalPath, userId],
+      `INSERT INTO files (filename, original_name, mimetype, size, path, user_id, is_public, source)
+       VALUES (?, ?, ?, ?, ?, ?, 0, ?)`,
+      [uniqueFilename, originalName, fileMimetype, fileSize, finalPath, userId, fileSource],
       function(err) {
         if (err) {
           console.error('保存文件记录失败:', err);
