@@ -55,6 +55,15 @@ if ('serviceWorker' in navigator) {
   });
 }
 
+// 在非localhost环境下加载认证调试工具
+if (window.location.hostname !== 'localhost') {
+  import('./utils/authDebug.js').then(() => {
+    console.log('🔧 认证调试工具已加载，使用 authDebug.runFullDiagnosis() 运行诊断');
+  }).catch((err) => {
+    console.warn('认证调试工具加载失败:', err);
+  });
+}
+
 ReactDOM.createRoot(document.getElementById('root')).render(
   <React.StrictMode>
     <App />

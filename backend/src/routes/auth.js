@@ -87,5 +87,42 @@ router.post('/login', (req, res) => {
   });
 });
 
+// 调试端点 - 验证token
+router.post('/debug-token', (req, res) => {
+  const { token } = req.body;
+  
+  if (!token) {
+    return res.status(400).json({ error: '未提供token' });
+  }
+  
+  console.log('[Debug Token] 收到token验证请求:', {
+    tokenPreview: token.substring(0, 30) + '...',
+    tokenLength: token.length,
+    headers: req.headers
+  });
+  
+  jwt.verify(token, JWT_SECRET, (err, user) => {
+    if (err) {
+      console.error('[Debug Token] Token验证失败:', {
+        message: err.message,
+        expiredAt: err.expiredAt,
+        secret: JWT_SECRET.substring(0, 10) + '...'
+      });
+      return res.status(403).json({
+        error: '令牌无效或已过期',
+        details: err.message,
+        secretPreview: JWT_SECRET.substring(0, 10) + '...'
+      });
+    }
+    
+    console.log('[Debug Token] Token验证成功:', user);
+    res.json({
+      valid: true,
+      user: user,
+      secretPreview: JWT_SECRET.substring(0, 10) + '...'
+    });
+  });
+});
+
 export default router;
 
