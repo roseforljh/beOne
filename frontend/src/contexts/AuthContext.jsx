@@ -1,5 +1,5 @@
 import { createContext, useContext, useState, useEffect } from 'react';
-import axios from 'axios';
+import { axiosInstance as axios } from '../utils/api';
 
 const AuthContext = createContext(null);
 
@@ -17,18 +17,35 @@ export const AuthProvider = ({ children }) => {
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
-    // 从 localStorage 恢复登录状态
-    const savedToken = localStorage.getItem('token');
-    const savedUser = localStorage.getItem('user');
-    
-    if (savedToken && savedUser) {
-      setToken(savedToken);
-      setUser(JSON.parse(savedUser));
-      // 设置 axios 默认 header
-      axios.defaults.headers.common['Authorization'] = `Bearer ${savedToken}`;
+    // 从 localStorage 恢复登录状态（健壮性：防止 JSON.parse('undefined')/'null' 触发白屏）
+    try {
+      const savedToken = localStorage.getItem('token');
+      const savedUser = localStorage.getItem('user');
+      const isCorrupt =
+        savedUser === undefined ||
+        savedUser === 'undefined' ||
+        savedUser === null ||
+        savedUser === 'null';
+  
+      if (savedToken && savedUser && !isCorrupt) {
+        setToken(savedToken);
+        // 仅在明确是有效 JSON 时再解析
+        setUser(JSON.parse(savedUser));
+        // 设置 axios 默认 header（统一使用 axiosInstance）
+        axios.defaults.headers.common['Authorization'] = `Bearer ${savedToken}`;
+      } else {
+        // 发现损坏或占位字符串，立即清理，避免后续解析
+        localStorage.removeItem('token');
+        localStorage.removeItem('user');
+      }
+    } catch (error) {
+      console.error('恢复登录状态失败:', error);
+      // 清除可能损坏的数据
+      localStorage.removeItem('token');
+      localStorage.removeItem('user');
+    } finally {
+      setLoading(false);
     }
-    
-    setLoading(false);
   }, []);
 
   const login = async (username, password) => {
@@ -43,7 +60,7 @@ export const AuthProvider = ({ children }) => {
       localStorage.setItem('token', newToken);
       localStorage.setItem('user', JSON.stringify(newUser));
       
-      // 设置 axios 默认 header
+      // 设置 axios 默认 header（统一使用 axiosInstance）
       axios.defaults.headers.common['Authorization'] = `Bearer ${newToken}`;
       
       return { success: true };
@@ -67,7 +84,7 @@ export const AuthProvider = ({ children }) => {
       localStorage.setItem('token', newToken);
       localStorage.setItem('user', JSON.stringify(newUser));
       
-      // 设置 axios 默认 header
+      // 设置 axios 默认 header（统一使用 axiosInstance）
       axios.defaults.headers.common['Authorization'] = `Bearer ${newToken}`;
       
       return { success: true };

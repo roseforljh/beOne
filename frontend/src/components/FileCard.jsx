@@ -1,7 +1,10 @@
 import { motion } from 'framer-motion';
 import { useState } from 'react';
 import { formatFileSize, getFileIcon } from '../utils/uploadHelper';
-import { api } from '../utils/api';
+import { api, axiosInstance } from '../utils/api';
+import { Capacitor } from '@capacitor/core';
+import { Filesystem, Directory } from '@capacitor/filesystem';
+import { Toast } from '@capacitor/toast';
 
 export default function FileCard({ file, onUpdate, onDelete, onPreview }) {
   const [isDeleting, setIsDeleting] = useState(false);
@@ -35,8 +38,52 @@ export default function FileCard({ file, onUpdate, onDelete, onPreview }) {
     }
   };
 
-  const handleDownload = () => {
-    window.open(api.getDownloadUrl(file.id), '_blank');
+  const handleDownload = async () => {
+    if (Capacitor.isNativePlatform()) {
+      try {
+        await Toast.show({
+          text: `开始下载 ${file.original_name}...`,
+          duration: 'short',
+        });
+
+        const response = await axiosInstance.get(`/api/files/${file.id}/download`, {
+          responseType: 'blob',
+        });
+        const blob = response.data;
+
+        const reader = new FileReader();
+        reader.onloadend = async () => {
+          const base64data = reader.result;
+          try {
+            await Filesystem.writeFile({
+              path: file.original_name,
+              data: base64data,
+              directory: Directory.Downloads,
+            });
+
+            await Toast.show({
+              text: `${file.original_name} 已保存到“下载”文件夹`,
+              duration: 'long',
+            });
+          } catch (e) {
+            console.error('文件保存失败', e);
+            await Toast.show({
+              text: `文件保存失败: ${e.message}`,
+              duration: 'long',
+            });
+          }
+        };
+        reader.readAsDataURL(blob);
+      } catch (error) {
+        console.error('下载失败:', error);
+        await Toast.show({
+          text: `下载失败: ${error.message}`,
+          duration: 'long',
+        });
+      }
+    } else {
+      window.open(api.getDownloadUrl(file.id), '_blank');
+    }
   };
 
   return (

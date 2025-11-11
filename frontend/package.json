@@ -9,6 +9,10 @@
     "preview": "vite preview"
   },
   "dependencies": {
+    "@capacitor/core": "^7.4.4",
+    "@capacitor/file-transfer": "^1.0.6",
+    "@capacitor/filesystem": "^7.1.4",
+    "@capacitor/toast": "^7.0.2",
     "axios": "^1.6.2",
     "framer-motion": "^10.16.16",
     "react": "^18.2.0",

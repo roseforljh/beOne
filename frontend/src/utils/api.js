@@ -1,7 +1,21 @@
 import axios from 'axios';
+import { Capacitor } from '@capacitor/core';
+
+// 根据平台动态设置 baseURL
+const getBaseUrl = () => {
+  if (Capacitor.isNativePlatform()) {
+    // 在原生 App 中，直接指向后端服务IP
+    return 'http://192.168.0.100:5000';
+  }
+  // 在 Web 环境中，使用相对路径，依赖 Vite 代理或部署环境的配置
+  return '';
+};
+
+const API_BASE_URL = getBaseUrl();
 
 // 创建 axios 实例
 const axiosInstance = axios.create({
+  baseURL: API_BASE_URL,
   timeout: 30000, // 30秒超时
   headers: {
     'Content-Type': 'application/json'
@@ -117,26 +131,23 @@ export const api = {
 
   getDownloadUrl(fileId) {
     const token = localStorage.getItem('token');
-    const url = token
-      ? `/api/files/${fileId}/download?token=${encodeURIComponent(token)}`
-      : `/api/files/${fileId}/download`;
-    return url;
+    const path = `/api/files/${fileId}/download`;
+    const url = token ? `${path}?token=${encodeURIComponent(token)}` : path;
+    return API_BASE_URL + url;
   },
 
   getPreviewUrl(fileId) {
     const token = localStorage.getItem('token');
-    const url = token
-      ? `/api/files/${fileId}/preview?token=${encodeURIComponent(token)}`
-      : `/api/files/${fileId}/preview`;
-    return url;
+    const path = `/api/files/${fileId}/preview`;
+    const url = token ? `${path}?token=${encodeURIComponent(token)}` : path;
+    return API_BASE_URL + url;
   },
 
   getThumbnailUrl(fileId) {
     const token = localStorage.getItem('token');
-    const url = token
-      ? `/api/files/${fileId}/thumbnail?token=${encodeURIComponent(token)}`
-      : `/api/files/${fileId}/thumbnail`;
-    return url;
+    const path = `/api/files/${fileId}/thumbnail`;
+    const url = token ? `${path}?token=${encodeURIComponent(token)}` : path;
+    return API_BASE_URL + url;
   },
   
   // 清除所有缓存

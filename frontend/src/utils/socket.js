@@ -1,4 +1,5 @@
 import { io } from 'socket.io-client';
+import { Capacitor } from '@capacitor/core';
 
 let socket = null;
 let heartbeatInterval = null;
@@ -14,14 +15,23 @@ export const connectSocket = (token) => {
     return socket;
   }
 
-  // 判断是否为开发环境
-  const isDevelopment = window.location.port === '5173' ||
-                        window.location.hostname === 'localhost' ||
-                        window.location.hostname === '127.0.0.1';
-  
-  const socketUrl = isDevelopment
-    ? `http://${window.location.hostname}:5000`
-    : window.location.origin;
+  // 动态获取 Socket URL
+  const getSocketUrl = () => {
+    if (Capacitor.isNativePlatform()) {
+      // 在原生 App 中，直接指向后端服务IP
+      return 'http://192.168.0.100:5000';
+    }
+    // 在 Web 开发环境中
+    const isDevelopment = window.location.port === '5173' ||
+                          window.location.hostname === 'localhost' ||
+                          window.location.hostname === '127.0.0.1';
+    
+    return isDevelopment
+      ? `http://${window.location.hostname}:5000`
+      : window.location.origin;
+  };
+
+  const socketUrl = getSocketUrl();
 
   console.log('Socket连接地址:', socketUrl);
 

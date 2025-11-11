@@ -135,6 +135,8 @@ export default function Chat() {
   }, []);
   
   const handleNewMessage = useCallback((message) => {
+    // 防御：过滤无效消息，避免后续渲染时报 undefined.id
+    if (!message || !message.id || !message.conversation_id) return;
     if (message.conversation_id === currentConversationId) {
       setMessages((prev) => [...prev, message]);
     }
@@ -242,7 +244,7 @@ export default function Chat() {
     <div className="fixed inset-0 bg-taiji-gray-100 flex flex-col overflow-hidden">
       <Header />
 
-      <div className="flex-1 flex overflow-hidden min-h-0">
+      <div className="flex-1 flex overflow-hidden min-h-0" style={{ paddingBottom: 'env(safe-area-inset-bottom)' }}>
         {/* 桌面端侧边栏 */}
         <div className="hidden lg:block">
           <ConversationSidebar
@@ -270,7 +272,11 @@ export default function Chat() {
                 animate={{ x: 0 }}
                 exit={{ x: '-100%' }}
                 transition={{ type: 'spring', stiffness: 300, damping: 30 }}
-                className="fixed top-0 left-0 h-full z-40 lg:hidden"
+                className="fixed left-0 z-40 lg:hidden"
+                style={{
+                  top: 'calc(48px + env(safe-area-inset-top))',
+                  height: 'calc(100% - 48px - env(safe-area-inset-top))'
+                }}
               >
                 <ConversationSidebar
                   conversations={conversations}
@@ -292,7 +298,7 @@ export default function Chat() {
 
         <div className="flex-1 flex flex-col lg:flex-row gap-2 md:gap-4 p-2 md:p-4">
           <div className="flex-1 flex flex-col bg-taiji-white rounded-xl md:rounded-2xl shadow-lg border-2 border-taiji-gray-200 overflow-hidden">
-            <div className="bg-taiji-black text-taiji-white px-3 md:px-6 py-3 md:py-4 flex items-center justify-between">
+            <div className="bg-taiji-black text-taiji-white px-3 md:px-6 py-2 md:py-4 flex items-center justify-between">
               <div className="flex items-center gap-2 md:gap-3">
                 {/* 移动端汉堡按钮 */}
                 <button
@@ -348,11 +354,11 @@ export default function Chat() {
               ) : (
                 <>
                   <AnimatePresence>
-                    {messages.map((message) => (
+                    {messages.map((message, index) => (
                       <ChatMessage
-                        key={message.id}
+                        key={message?.id ?? index}
                         message={message}
-                        isOwn={message.user_id === user.id}
+                        isOwn={Boolean(user && message && message.user_id === user.id)}
                         currentSessionId={currentSessionId}
                         onRecall={handleMessageRecall}
                       />

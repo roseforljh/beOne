@@ -1,4 +1,5 @@
 import axios from 'axios';
+import { axiosInstance as api } from './api';
 
 const CHUNK_SIZE = 2 * 1024 * 1024; // 2MB - 更小的分片以提高并发效率
 const MAX_CONCURRENT_UPLOADS = 3; // 最大并发上传数
@@ -35,8 +36,8 @@ export class FileUploader {
       this.startTime = Date.now();
       this.lastUpdateTime = this.startTime;
       
-      // 1. 初始化上传
-      const initResponse = await axios.post('/api/upload/init', {
+      // 1. 初始化上传（统一走 axiosInstance，原生端使用后端 IP 而非 http://localhost）
+      const initResponse = await api.post('/api/upload/init', {
         filename: this.file.name,
         totalChunks: this.totalChunks,
         fileSize: this.file.size,
@@ -52,8 +53,8 @@ export class FileUploader {
         throw new Error('上传已取消');
       }
 
-      // 3. 完成上传
-      const completeResponse = await axios.post('/api/upload/complete', {
+      // 3. 完成上传（统一走 axiosInstance）
+      const completeResponse = await api.post('/api/upload/complete', {
         uploadId: this.uploadId,
         filename: this.file.name,
         totalChunks: this.totalChunks,
@@ -159,7 +160,8 @@ export class FileUploader {
     this.cancelTokenSources.set(index, cancelTokenSource);
 
     try {
-      await axios.post('/api/upload/chunk', formData, {
+      // 分片上传（统一走 axiosInstance），CancelToken 继续沿用 axios 的静态属性
+      await api.post('/api/upload/chunk', formData, {
         headers: {
           'Content-Type': 'multipart/form-data'
         },

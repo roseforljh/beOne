@@ -1,6 +1,6 @@
 import { useState } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
-import axios from 'axios';  // 仍需要用于重命名和删除操作
+import { axiosInstance as axios } from '../utils/api';  // 统一使用带拦截器的实例，确保携带 token
 
 export default function ConversationSidebar({ 
   conversations, 
@@ -12,6 +12,9 @@ export default function ConversationSidebar({
   const [editingId, setEditingId] = useState(null);
   const [editTitle, setEditTitle] = useState('');
   const [isCreating, setIsCreating] = useState(false);
+  // 自定义确认弹窗状态
+  const [confirmOpen, setConfirmOpen] = useState(false);
+  const [pendingDeleteId, setPendingDeleteId] = useState(null);
 
   const handleRename = async (id) => {
     if (!editTitle.trim()) {
@@ -20,29 +23,45 @@ export default function ConversationSidebar({
     }
 
     try {
-      await axios.patch(`/api/conversations/${id}`, { title: editTitle });
+      // 乐观更新：先本地改标题
+      const oldTitle = editTitle;
       setEditingId(null);
-      onRefresh();
+      onRefresh(); // 让父级刷新（同时也会有 ws 推送兜底）
+      await axios.patch(`/api/conversations/${id}`, { title: oldTitle });
     } catch (error) {
-      alert('重命名失败');
+      // 失败再刷新一次回滚
+      onRefresh();
+      // 轻提示替代 alert（保留以兼容桌面）
+      console.error('重命名失败:', error);
     }
   };
 
-  const handleDelete = async (id) => {
-    if (!confirm('确定要删除这个会话吗？所有消息将被删除！')) {
-      return;
-    }
+  const openConfirmDelete = (id) => {
+    setPendingDeleteId(id);
+    setConfirmOpen(true);
+  };
 
+  const closeConfirm = () => {
+    setConfirmOpen(false);
+    setPendingDeleteId(null);
+  };
+
+  const confirmDelete = async () => {
+    const id = pendingDeleteId;
+    if (!id) return;
+    // 关闭弹窗
+    closeConfirm();
     try {
-      await axios.delete(`/api/conversations/${id}`);
+      // 乐观更新：先让父级刷新（后台 ws 也会推送 deleted 事件）
       onRefresh();
-      
+      await axios.delete(`/api/conversations/${id}`);
       // 如果删除的是当前会话，切换到默认会话
       if (id === currentConversationId) {
         onSelectConversation(null);
       }
     } catch (error) {
-      alert('删除失败');
+      console.error('删除失败:', error);
+      onRefresh();
     }
   };
 
@@ -59,7 +78,7 @@ export default function ConversationSidebar({
   };
 
   return (
-    <div className="w-64 bg-taiji-white border-r-2 border-taiji-gray-200 flex flex-col h-full pt-16 lg:pt-0">
+    <div className="w-64 bg-taiji-white border-r-2 border-taiji-gray-200 flex flex-col h-full">
       {/* 标题和新建按钮 */}
       <div className="p-4 border-b-2 border-taiji-gray-200">
         <div className="flex items-center justify-between">
@@ -131,7 +150,7 @@ export default function ConversationSidebar({
                       <button
                         onClick={(e) => {
                           e.stopPropagation();
-                          handleDelete(conv.id);
+                          openConfirmDelete(conv.id);
                         }}
                         className="p-1 hover:bg-red-500 hover:text-white rounded"
                         title="删除"
@@ -160,6 +179,48 @@ export default function ConversationSidebar({
           </div>
         )}
       </div>
+
+      {/* 自定义确认弹窗（替代系统 confirm） */}
+      <AnimatePresence>
+        {confirmOpen && (
+          <motion.div
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            exit={{ opacity: 0 }}
+            className="fixed inset-0 z-50 flex items-center justify-center bg-black/50"
+            onClick={closeConfirm}
+          >
+            <motion.div
+              initial={{ scale: 0.95, opacity: 0 }}
+              animate={{ scale: 1, opacity: 1 }}
+              exit={{ scale: 0.95, opacity: 0 }}
+              className="bg-white w-80 rounded-xl shadow-xl overflow-hidden"
+              onClick={(e) => e.stopPropagation()}
+            >
+              <div className="px-5 py-4 border-b">
+                <h3 className="text-base font-semibold text-taiji-black">确认删除</h3>
+              </div>
+              <div className="px-5 py-4 text-sm text-taiji-gray-700">
+                确定要删除这个会话吗？所有消息将被删除！
+              </div>
+              <div className="px-5 py-3 border-t flex justify-end gap-3">
+                <button
+                  onClick={closeConfirm}
+                  className="px-3 py-1.5 rounded-lg border border-taiji-gray-300 text-taiji-black hover:bg-taiji-gray-100"
+                >
+                  取消
+                </button>
+                <button
+                  onClick={confirmDelete}
+                  className="px-3 py-1.5 rounded-lg bg-red-500 text-white hover:bg-red-600"
+                >
+                  删除
+                </button>
+              </div>
+            </motion.div>
+          </motion.div>
+        )}
+      </AnimatePresence>
     </div>
   );
 }

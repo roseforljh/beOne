@@ -10,15 +10,18 @@ export default function Header() {
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
 
   return (
-    <header className="bg-taiji-white border-b-2 border-taiji-gray-200 sticky top-0 z-50">
-      <div className="max-w-7xl mx-auto px-4 py-3">
+    <header
+      className="sticky top-0 z-50 border-b border-taiji-gray-200 bg-white/90 backdrop-blur supports-[backdrop-filter]:bg-white/70"
+      style={{ paddingTop: 'env(safe-area-inset-top)' }}
+    >
+      <div className="max-w-7xl mx-auto px-3 md:px-4 py-1.5 md:py-3">
         <div className="flex items-center justify-between">
           {/* Logo */}
           <Link to="/" className="flex items-center gap-2 hover:opacity-80 transition-opacity">
-            <TaijiLogo size={36} animate={false} />
-            <div>
-              <h1 className="text-base md:text-lg font-bold text-taiji-black">太极</h1>
-              <p className="text-xs text-taiji-gray-500">
+            <TaijiLogo size={28} animate={false} />
+            <div className="leading-tight">
+              <h1 className="text-sm md:text-lg font-bold text-taiji-black">太极</h1>
+              <p className="hidden sm:block text-xs text-taiji-gray-500">
                 {user?.is_guest ? '👤 游客模式' : '文件传输'}
               </p>
             </div>
@@ -82,6 +85,7 @@ export default function Header() {
               <button
                 onClick={() => setMobileMenuOpen(!mobileMenuOpen)}
                 className="md:hidden p-2 text-taiji-black"
+                aria-label="打开菜单"
               >
                 <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                   {mobileMenuOpen ? (
@@ -104,7 +108,7 @@ export default function Header() {
               exit={{ opacity: 0, height: 0 }}
               className="md:hidden overflow-hidden"
             >
-              <div className="py-4 space-y-2">
+              <div className="py-3 space-y-2">
                 <Link
                   to="/"
                   onClick={() => setMobileMenuOpen(false)}
@@ -149,8 +153,8 @@ export default function Header() {
                 >
                   ⚙️ 设置
                 </Link>
-                
-                <div className="pt-4 border-t border-taiji-gray-200 flex items-center justify-between px-4">
+
+                <div className="pt-3 border-t border-taiji-gray-200 flex items-center justify-between px-4">
                   <span className="text-sm text-taiji-gray-600">{user.username}</span>
                   <button
                     onClick={() => {

@@ -1,0 +1,8 @@
+{
+  "appId": "com.beone.app",
+  "appName": "beOne Mobile",
+  "webDir": "www",
+  "server": {
+    "androidScheme": "http"
+  }
+}
