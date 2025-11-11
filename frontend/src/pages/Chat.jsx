@@ -306,11 +306,17 @@ export default function Chat() {
   };
 
   const handleNewConversation = async () => {
-    const newConv = await createNewConversation();
-    if (newConv) {
-      // 后端会通过 websocket 通知我们更新列表，
-      // 我们只需要在操作端将会话切换到新建的这个
-      setCurrentConversationId(newConv.id);
+    try {
+      const newConv = await createNewConversation();
+      if (newConv) {
+        // 后端会通过 websocket 通知我们更新列表，
+        // 我们只需要在操作端将会话切换到新建的这个
+        setCurrentConversationId(newConv.id);
+        showToastMessage('会话创建成功', 'success');
+      }
+    } catch (error) {
+      console.error('创建会话时出错:', error);
+      // createNewConversation 内部已经处理了错误提示，这里不需要重复处理
     }
   };
 

@@ -71,7 +71,8 @@ export default function ConversationSidebar({
       // 不再直接调用 API，而是通过回调通知父组件处理
       await onNewConversation();
     } catch (error) {
-      alert('创建会话失败');
+      console.error('创建会话失败:', error);
+      // 移除alert，错误处理由父组件的Toast负责
     } finally {
       setIsCreating(false);
     }
