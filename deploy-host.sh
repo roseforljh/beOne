@@ -14,6 +14,7 @@ echo "=========================================="
 case $ACTION in
   up)
     echo "启动服务..."
+    echo "提示: 如果是首次部署或更新了配置,请使用 './deploy-host.sh build'"
     docker compose -f docker-compose.host.yml up -d
     echo "✓ 服务已启动"
     echo ""
