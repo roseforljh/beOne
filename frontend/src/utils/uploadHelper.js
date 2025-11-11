@@ -31,6 +31,10 @@ export class FileUploader {
     this.cancelTokenSources.clear();
   }
 
+  cancel() {
+    this.abort();
+  }
+
   async upload() {
     try {
       this.startTime = Date.now();

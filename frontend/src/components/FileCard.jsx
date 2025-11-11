@@ -41,6 +41,16 @@ export default function FileCard({ file, onUpdate, onDelete, onPreview }) {
   const handleDownload = async () => {
     if (Capacitor.isNativePlatform()) {
       try {
+        // 请求存储权限
+        const permissions = await Filesystem.requestPermissions();
+        if (permissions.publicStorage !== 'granted') {
+          await Toast.show({
+            text: '需要存储权限才能下载文件',
+            duration: 'long',
+          });
+          return;
+        }
+
         await Toast.show({
           text: `开始下载 ${file.original_name}...`,
           duration: 'short',
@@ -58,11 +68,11 @@ export default function FileCard({ file, onUpdate, onDelete, onPreview }) {
             await Filesystem.writeFile({
               path: file.original_name,
               data: base64data,
-              directory: Directory.Downloads,
+              directory: Directory.Documents,
             });
 
             await Toast.show({
-              text: `${file.original_name} 已保存到“下载”文件夹`,
+              text: `${file.original_name} 已保存成功`,
               duration: 'long',
             });
           } catch (e) {

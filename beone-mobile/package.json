@@ -15,6 +15,7 @@
     "@capacitor/cli": "^7.4.4",
     "@capacitor/core": "^7.4.4",
     "@capacitor/filesystem": "^7.1.4",
+    "@capacitor/keyboard": "^7.0.3",
     "@capacitor/toast": "^7.0.2"
   }
 }

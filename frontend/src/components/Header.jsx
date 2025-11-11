@@ -11,7 +11,7 @@ export default function Header() {
 
   return (
     <header
-      className="sticky top-0 z-50 border-b border-taiji-gray-200 bg-white/90 backdrop-blur supports-[backdrop-filter]:bg-white/70"
+      className="fixed top-0 left-0 right-0 z-50 border-b border-taiji-gray-200 bg-white/90 backdrop-blur supports-[backdrop-filter]:bg-white/70"
       style={{ paddingTop: 'env(safe-area-inset-top)' }}
     >
       <div className="max-w-7xl mx-auto px-3 md:px-4 py-1.5 md:py-3">

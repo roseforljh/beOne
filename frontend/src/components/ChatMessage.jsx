@@ -1,8 +1,11 @@
 import { useState, memo, useCallback } from 'react';
-import { motion } from 'framer-motion';
+import { motion, AnimatePresence } from 'framer-motion';
 import { formatFileSize, getFileIcon } from '../utils/uploadHelper';
-import { api } from '../utils/api';
+import { api, axiosInstance } from '../utils/api';
 import { recallMessage } from '../utils/socket';
+import { Capacitor } from '@capacitor/core';
+import { Filesystem, Directory } from '@capacitor/filesystem';
+import { Toast } from '@capacitor/toast';
 
 const ChatMessage = memo(function ChatMessage({ message, isOwn, currentSessionId, onRecall }) {
   // 判断是否是当前会话发送的消息
@@ -10,9 +13,64 @@ const ChatMessage = memo(function ChatMessage({ message, isOwn, currentSessionId
   const isCurrentSession = !message.session_id || message.session_id === currentSessionId;
   const [showActions, setShowActions] = useState(false);
   const [copied, setCopied] = useState(false);
+  const [showRecallConfirm, setShowRecallConfirm] = useState(false);
 
-  const handleDownload = useCallback(() => {
-    if (message.file) {
+  const handleDownload = useCallback(async () => {
+    if (!message.file) return;
+
+    if (Capacitor.isNativePlatform()) {
+      try {
+        // 请求存储权限
+        const permissions = await Filesystem.requestPermissions();
+        if (permissions.publicStorage !== 'granted') {
+          await Toast.show({
+            text: '需要存储权限才能下载文件',
+            duration: 'long',
+          });
+          return;
+        }
+
+        await Toast.show({
+          text: `开始下载 ${message.file.original_name}...`,
+          duration: 'short',
+        });
+
+        const response = await axiosInstance.get(`/api/files/${message.file.id}/download`, {
+          responseType: 'blob',
+        });
+        const blob = response.data;
+
+        const reader = new FileReader();
+        reader.onloadend = async () => {
+          const base64data = reader.result;
+          try {
+            await Filesystem.writeFile({
+              path: message.file.original_name,
+              data: base64data,
+              directory: Directory.Documents,
+            });
+
+            await Toast.show({
+              text: `${message.file.original_name} 已保存成功`,
+              duration: 'long',
+            });
+          } catch (e) {
+            console.error('文件保存失败', e);
+            await Toast.show({
+              text: `文件保存失败: ${e.message}`,
+              duration: 'long',
+            });
+          }
+        };
+        reader.readAsDataURL(blob);
+      } catch (error) {
+        console.error('下载失败:', error);
+        await Toast.show({
+          text: `下载失败: ${error.message}`,
+          duration: 'long',
+        });
+      }
+    } else {
       window.open(api.getDownloadUrl(message.file.id), '_blank');
     }
   }, [message.file]);
@@ -37,13 +95,20 @@ const ChatMessage = memo(function ChatMessage({ message, isOwn, currentSessionId
   }, [message.type, message.content, message.file]);
 
   const handleRecall = useCallback(() => {
-    if (confirm('确定要撤回这条消息吗？')) {
-      recallMessage(message.id);
-      if (onRecall) {
-        onRecall(message.id);
-      }
+    setShowRecallConfirm(true);
+  }, []);
+
+  const confirmRecall = useCallback(() => {
+    recallMessage(message.id);
+    if (onRecall) {
+      onRecall(message.id);
     }
+    setShowRecallConfirm(false);
   }, [message.id, onRecall]);
+
+  const cancelRecall = useCallback(() => {
+    setShowRecallConfirm(false);
+  }, []);
 
   const toggleActions = useCallback(() => {
     // 移动端点击切换
@@ -154,6 +219,49 @@ const ChatMessage = memo(function ChatMessage({ message, isOwn, currentSessionId
           </div>
         </div>
       </div>
+
+      {/* 撤回确认对话框 */}
+      <AnimatePresence>
+        {showRecallConfirm && (
+          <motion.div
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            exit={{ opacity: 0 }}
+            className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 px-4"
+            onClick={cancelRecall}
+          >
+            <motion.div
+              initial={{ scale: 0.95, opacity: 0 }}
+              animate={{ scale: 1, opacity: 1 }}
+              exit={{ scale: 0.95, opacity: 0 }}
+              className="bg-white rounded-2xl shadow-2xl overflow-hidden max-w-sm w-full"
+              onClick={(e) => e.stopPropagation()}
+            >
+              <div className="p-6">
+                <h3 className="text-lg font-bold text-taiji-black mb-2">撤回消息</h3>
+                <p className="text-sm text-taiji-gray-600">
+                  确定要撤回这条消息吗？
+                </p>
+              </div>
+              <div className="flex border-t border-taiji-gray-200">
+                <button
+                  onClick={cancelRecall}
+                  className="flex-1 py-3 text-sm font-medium text-taiji-gray-600 hover:bg-taiji-gray-50 transition-colors"
+                >
+                  取消
+                </button>
+                <div className="w-px bg-taiji-gray-200"></div>
+                <button
+                  onClick={confirmRecall}
+                  className="flex-1 py-3 text-sm font-medium text-red-500 hover:bg-red-50 transition-colors"
+                >
+                  撤回
+                </button>
+              </div>
+            </motion.div>
+          </motion.div>
+        )}
+      </AnimatePresence>
     </motion.div>
   );
 });

@@ -14,6 +14,8 @@ const ChatInput = memo(function ChatInput({ conversationId, onFileSent }) {
   const typingTimeoutRef = useRef(null);
   const [currentAccept, setCurrentAccept] = useState('*/*');
   const [currentCapture, setCurrentCapture] = useState(null);
+  const uploadersRef = useRef([]);
+  const [cancelledIndexes, setCancelledIndexes] = useState(new Set());
 
   const handleSend = useCallback(() => {
     if (message.trim()) {
@@ -47,12 +49,30 @@ const ChatInput = memo(function ChatInput({ conversationId, onFileSent }) {
     }, 3000);
   }, []);
 
+  const handleCancelUpload = useCallback((index) => {
+    setCancelledIndexes(prev => new Set([...prev, index]));
+    if (uploadersRef.current[index]) {
+      uploadersRef.current[index].cancel();
+    }
+  }, []);
+
+  const handleCancelAll = useCallback(() => {
+    uploadersRef.current.forEach((uploader, index) => {
+      if (uploader) {
+        uploader.cancel();
+        setCancelledIndexes(prev => new Set([...prev, index]));
+      }
+    });
+  }, []);
+
   const handleFileSelect = useCallback(async (e) => {
     const files = Array.from(e.target.files);
     if (files.length === 0) return;
 
     setUploading(true);
     setUploadingFiles(files);
+    setCancelledIndexes(new Set());
+    uploadersRef.current = [];
     
     // 初始化进度和速度
     const initialProgress = {};
@@ -67,6 +87,11 @@ const ChatInput = memo(function ChatInput({ conversationId, onFileSent }) {
     // 顺序上传文件（一个接一个）
     const results = [];
     for (let index = 0; index < files.length; index++) {
+      // 检查是否已取消
+      if (cancelledIndexes.has(index)) {
+        continue;
+      }
+
       const file = files[index];
       const uploader = new Uploader(
         file,
@@ -83,8 +108,16 @@ const ChatInput = memo(function ChatInput({ conversationId, onFileSent }) {
           }));
         }
       );
+      
+      uploadersRef.current[index] = uploader;
 
       const result = await uploader.upload();
+      
+      // 检查是否在上传过程中被取消
+      if (result.cancelled) {
+        continue;
+      }
+      
       results.push({ index, file, result });
 
       // 上传成功立即发送消息
@@ -106,12 +139,14 @@ const ChatInput = memo(function ChatInput({ conversationId, onFileSent }) {
     setUploadingFiles([]);
     setUploadProgress({});
     setUploadSpeed({});
+    setCancelledIndexes(new Set());
+    uploadersRef.current = [];
     
     // 重置文件选择器
     if (fileInputRef.current) {
       fileInputRef.current.value = '';
     }
-  }, [conversationId, onFileSent]);
+  }, [conversationId, onFileSent, cancelledIndexes]);
 
   return (
     <div className="border-t-2 border-taiji-gray-200 bg-taiji-white p-2 md:p-4">
@@ -121,13 +156,23 @@ const ChatInput = memo(function ChatInput({ conversationId, onFileSent }) {
           animate={{ opacity: 1, y: 0 }}
           className="mb-2 md:mb-3 bg-taiji-gray-100 rounded-lg p-2 md:p-3 space-y-3 max-h-48 overflow-y-auto"
         >
-          <div className="text-xs md:text-sm text-taiji-gray-600 font-medium">
-            正在上传 {uploadingFiles.length} 个文件
+          <div className="flex items-center justify-between">
+            <div className="text-xs md:text-sm text-taiji-gray-600 font-medium">
+              正在上传 {uploadingFiles.length} 个文件
+            </div>
+            <button
+              onClick={handleCancelAll}
+              className="px-2 py-1 text-xs bg-red-500 text-white rounded hover:bg-red-600 transition-colors"
+            >
+              全部取消
+            </button>
           </div>
           {uploadingFiles.map((file, index) => {
             const progress = uploadProgress[index] || 0;
             const speed = uploadSpeed[index] || 0;
             const displayProgress = Math.min(Math.round(progress), 100);
+            
+            const isCancelled = cancelledIndexes.has(index);
             
             return (
               <div key={index} className="bg-taiji-white rounded-lg p-2">
@@ -136,33 +181,50 @@ const ChatInput = memo(function ChatInput({ conversationId, onFileSent }) {
                     {file.name}
                   </span>
                   <div className="flex items-center gap-2">
-                    {speed > 0 && (
+                    {!isCancelled && speed > 0 && (
                       <span className="text-xs text-taiji-gray-500">
                         {formatFileSize(speed)}/s
                       </span>
                     )}
+                    {!isCancelled && displayProgress < 100 && (
+                      <button
+                        onClick={() => handleCancelUpload(index)}
+                        className="text-xs text-red-500 hover:text-red-700 font-medium"
+                      >
+                        ✕
+                      </button>
+                    )}
                     <span className="text-xs font-bold text-taiji-black min-w-[45px] text-right">
-                      {displayProgress}%
+                      {isCancelled ? '已取消' : `${displayProgress}%`}
                     </span>
                   </div>
                 </div>
-                <div className="w-full bg-taiji-gray-200 rounded-full h-2 overflow-hidden">
-                  <motion.div
-                    className="bg-taiji-black h-full rounded-full"
-                    style={{ width: `${displayProgress}%` }}
-                    transition={{ duration: 0.1, ease: 'linear' }}
-                  />
-                </div>
-                <div className="flex items-center justify-between mt-1">
-                  <span className="text-xs text-taiji-gray-500">
-                    {formatFileSize(file.size)}
-                  </span>
-                  {displayProgress === 100 && (
-                    <span className="text-xs text-green-600 font-medium">
-                      ✓ 完成
-                    </span>
-                  )}
-                </div>
+                {!isCancelled && (
+                  <>
+                    <div className="w-full bg-taiji-gray-200 rounded-full h-2 overflow-hidden">
+                      <motion.div
+                        className="bg-taiji-black h-full rounded-full"
+                        style={{ width: `${displayProgress}%` }}
+                        transition={{ duration: 0.1, ease: 'linear' }}
+                      />
+                    </div>
+                    <div className="flex items-center justify-between mt-1">
+                      <span className="text-xs text-taiji-gray-500">
+                        {formatFileSize(file.size)}
+                      </span>
+                      {displayProgress === 100 && (
+                        <span className="text-xs text-green-600 font-medium">
+                          ✓ 完成
+                        </span>
+                      )}
+                    </div>
+                  </>
+                )}
+                {isCancelled && (
+                  <div className="text-xs text-red-500 mt-1">
+                    上传已取消
+                  </div>
+                )}
               </div>
             );
           })}

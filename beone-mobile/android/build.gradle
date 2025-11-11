@@ -7,7 +7,7 @@ buildscript {
         mavenCentral()
     }
     dependencies {
-        classpath 'com.android.tools.build:gradle:8.1.4'
+        classpath 'com.android.tools.build:gradle:8.13.1'
         classpath 'com.google.gms:google-services:4.4.2'
 
     }
@@ -21,10 +21,10 @@ allprojects {
         mavenCentral()
     }
 
-    // Force Java 17 for all modules to fix build errors on systems with older JDKs.
+    // Force Java 22 for all modules
     tasks.withType(JavaCompile) {
-        sourceCompatibility = JavaVersion.VERSION_17
-        targetCompatibility = JavaVersion.VERSION_17
+        sourceCompatibility = JavaVersion.VERSION_22
+        targetCompatibility = JavaVersion.VERSION_22
     }
 }
 

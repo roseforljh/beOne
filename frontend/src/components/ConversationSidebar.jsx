@@ -52,13 +52,13 @@ export default function ConversationSidebar({
     // 关闭弹窗
     closeConfirm();
     try {
-      // 乐观更新：先让父级刷新（后台 ws 也会推送 deleted 事件）
-      onRefresh();
       await axios.delete(`/api/conversations/${id}`);
       // 如果删除的是当前会话，切换到默认会话
       if (id === currentConversationId) {
         onSelectConversation(null);
       }
+      // 删除成功后刷新列表（WebSocket也会推送更新）
+      onRefresh();
     } catch (error) {
       console.error('删除失败:', error);
       onRefresh();

@@ -9,6 +9,8 @@ import TaijiLogo from '../components/TaijiLogo';
 import ConversationSidebar from '../components/ConversationSidebar';
 import { useAuth } from '../contexts/AuthContext';
 import { connectSocket, disconnectSocket } from '../utils/socket';
+import { Keyboard } from '@capacitor/keyboard';
+import { Capacitor } from '@capacitor/core';
 
 export default function Chat() {
   const { user, token } = useAuth();
@@ -23,6 +25,7 @@ export default function Chat() {
   const messagesEndRef = useRef(null);
   const typingTimeouts = useRef(new Map());
   const initialized = useRef(false);
+  const chatContainerRef = useRef(null);
 
   // 使用 useMemo 优化在线用户列表计算
   const mergedOnlineUsers = useMemo(() => {
@@ -128,6 +131,39 @@ export default function Chat() {
       loadMessages(currentConversationId);
     }
   }, [currentConversationId, loadMessages]);
+
+  useEffect(() => {
+    if (Capacitor.isNativePlatform()) {
+      // 使用 none 模式，完全手动控制
+      Keyboard.setResizeMode({ mode: 'none' });
+      
+      Keyboard.addListener('keyboardWillShow', info => {
+        // 键盘弹出时，给聊天容器添加 bottom padding
+        const chatContainer = document.querySelector('[data-chat-container]');
+        if (chatContainer) {
+          chatContainer.style.paddingBottom = `${info.keyboardHeight}px`;
+          chatContainer.style.transition = 'padding-bottom 0.3s ease';
+        }
+        setTimeout(() => {
+          scrollToBottom(true);
+        }, 100);
+      });
+      
+      Keyboard.addListener('keyboardWillHide', () => {
+        // 键盘隐藏时，移除 padding
+        const chatContainer = document.querySelector('[data-chat-container]');
+        if (chatContainer) {
+          chatContainer.style.paddingBottom = '0px';
+        }
+      });
+    }
+
+    return () => {
+      if (Capacitor.isNativePlatform()) {
+        Keyboard.removeAllListeners();
+      }
+    };
+  }, [scrollToBottom]);
 
   // 定义Socket事件处理函数
   const handleConnect = useCallback((socket) => {
@@ -241,10 +277,18 @@ export default function Chat() {
   }, [conversations, currentConversationId]);
 
   return (
-    <div className="fixed inset-0 bg-taiji-gray-100 flex flex-col overflow-hidden">
-      <Header />
+    <div className="h-screen bg-taiji-gray-100 flex flex-col" ref={chatContainerRef}>
+      {/* Header 固定在顶部 */}
+      <div className="fixed top-0 left-0 right-0 z-50" style={{ paddingTop: 'env(safe-area-inset-top)' }}>
+        <Header />
+      </div>
 
-      <div className="flex-1 flex overflow-hidden min-h-0" style={{ paddingBottom: 'env(safe-area-inset-bottom)' }}>
+      {/* 内容区域 - 手动控制 padding */}
+      <div
+        data-chat-container
+        className="flex-1 flex overflow-hidden min-h-0"
+        style={{ paddingTop: 'calc(60px + env(safe-area-inset-top))' }}
+      >
         {/* 桌面端侧边栏 */}
         <div className="hidden lg:block">
           <ConversationSidebar
@@ -274,8 +318,8 @@ export default function Chat() {
                 transition={{ type: 'spring', stiffness: 300, damping: 30 }}
                 className="fixed left-0 z-40 lg:hidden"
                 style={{
-                  top: 'calc(48px + env(safe-area-inset-top))',
-                  height: 'calc(100% - 48px - env(safe-area-inset-top))'
+                  top: 'calc(60px + env(safe-area-inset-top))',
+                  height: 'calc(100% - 60px - env(safe-area-inset-top))'
                 }}
               >
                 <ConversationSidebar

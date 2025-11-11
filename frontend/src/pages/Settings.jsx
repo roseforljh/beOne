@@ -104,7 +104,10 @@ export default function Settings() {
     <div className="min-h-screen bg-taiji-gray-100">
       <Header />
 
-      <main className="max-w-4xl mx-auto px-3 md:px-4 py-4 md:py-8">
+      <main
+        className="max-w-4xl mx-auto px-3 md:px-4 py-4 md:py-8"
+        style={{ paddingTop: 'calc(60px + env(safe-area-inset-top))' }}
+      >
         <motion.div
           initial={{ opacity: 0, y: 20 }}
           animate={{ opacity: 1, y: 0 }}
