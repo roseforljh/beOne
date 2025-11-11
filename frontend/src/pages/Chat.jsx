@@ -156,15 +156,10 @@ export default function Chat() {
         const chatCard = document.querySelector('[data-chat-card]');
         
         if (chatCard) {
-          // 禁用过渡动画，直接设置padding，避免"再弹一下"
-          chatCard.style.transition = 'none';
+          // 添加平滑过渡动画
+          chatCard.style.transition = 'padding-bottom 0.25s ease-out';
           chatCard.style.paddingBottom = `${info.keyboardHeight}px`;
           console.log('已设置 paddingBottom:', info.keyboardHeight);
-          
-          // 强制重绘后再启用过渡
-          requestAnimationFrame(() => {
-            chatCard.style.transition = '';
-          });
         }
       });
       
@@ -175,8 +170,8 @@ export default function Chat() {
         const chatCard = document.querySelector('[data-chat-card]');
         
         if (chatCard) {
+          chatCard.style.transition = 'padding-bottom 0.25s ease-out';
           chatCard.style.paddingBottom = '0px';
-          chatCard.style.transition = 'padding-bottom 0.3s ease';
           console.log('已恢复 paddingBottom');
         }
       });
