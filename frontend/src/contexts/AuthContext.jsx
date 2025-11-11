@@ -1,5 +1,5 @@
 import { createContext, useContext, useState, useEffect } from 'react';
-import { axiosInstance as axios } from '../utils/api';
+import { axiosInstance as axios, updateApiBaseUrl } from '../utils/api';
 
 const AuthContext = createContext(null);
 
@@ -50,6 +50,9 @@ export const AuthProvider = ({ children }) => {
 
   const login = async (username, password) => {
     try {
+      // 更新 API baseURL（如果在安卓端修改了 API 地址）
+      updateApiBaseUrl();
+      
       const response = await axios.post('/api/auth/login', { username, password });
       const { token: newToken, user: newUser } = response.data;
       
@@ -74,6 +77,9 @@ export const AuthProvider = ({ children }) => {
 
   const guestLogin = async () => {
     try {
+      // 更新 API baseURL（如果在安卓端修改了 API 地址）
+      updateApiBaseUrl();
+      
       const response = await axios.post('/api/auth/guest-login');
       const { token: newToken, user: newUser } = response.data;
       

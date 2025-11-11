@@ -1,4 +1,4 @@
-import { useState, useRef } from 'react';
+import { useState, useRef, useEffect } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { FileUploader as Uploader } from '../utils/uploadHelper';
 import { useAuth } from '../contexts/AuthContext';
@@ -15,6 +15,24 @@ export default function FileUploader({ onUploadComplete }) {
   const [currentAccept, setCurrentAccept] = useState('*/*');
   const [currentCapture, setCurrentCapture] = useState(null);
   const uploadersRef = useRef([]);
+
+  // 组件卸载时清理
+  useEffect(() => {
+    return () => {
+      // 取消所有正在进行的上传
+      if (uploadersRef.current.length > 0) {
+        uploadersRef.current.forEach(uploader => {
+          try {
+            uploader.abort();
+          } catch (e) {
+            // 忽略取消错误
+          }
+        });
+      }
+      // 清理引用
+      uploadersRef.current = [];
+    };
+  }, []);
 
   // 游客不能上传
   if (user?.is_guest) {

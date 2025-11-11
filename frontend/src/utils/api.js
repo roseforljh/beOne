@@ -4,10 +4,20 @@ import { Capacitor } from '@capacitor/core';
 // 根据平台动态设置 baseURL
 const getBaseUrl = () => {
   if (Capacitor.isNativePlatform()) {
-    // 在原生 App 中，直接指向后端服务IP
-    return 'http://192.168.0.100:5000';
+    // 在原生 App 中，从 localStorage 读取用户配置的 API 地址
+    const savedApiUrl = localStorage.getItem('apiUrl');
+    return savedApiUrl || '';
   }
   // 在 Web 环境中，使用相对路径，依赖 Vite 代理或部署环境的配置
+  return '';
+};
+
+// 动态获取 API_BASE_URL，支持运行时更新
+const getApiBaseUrl = () => {
+  if (Capacitor.isNativePlatform()) {
+    const savedApiUrl = localStorage.getItem('apiUrl');
+    return savedApiUrl || '';
+  }
   return '';
 };
 
@@ -21,6 +31,13 @@ const axiosInstance = axios.create({
     'Content-Type': 'application/json'
   }
 });
+
+// 动态更新 baseURL 的函数
+export const updateApiBaseUrl = () => {
+  const newBaseUrl = getApiBaseUrl();
+  axiosInstance.defaults.baseURL = newBaseUrl;
+  return newBaseUrl;
+};
 
 // 请求缓存
 const requestCache = new Map();
@@ -133,21 +150,24 @@ export const api = {
     const token = localStorage.getItem('token');
     const path = `/api/files/${fileId}/download`;
     const url = token ? `${path}?token=${encodeURIComponent(token)}` : path;
-    return API_BASE_URL + url;
+    const baseUrl = getApiBaseUrl();
+    return baseUrl + url;
   },
 
   getPreviewUrl(fileId) {
     const token = localStorage.getItem('token');
     const path = `/api/files/${fileId}/preview`;
     const url = token ? `${path}?token=${encodeURIComponent(token)}` : path;
-    return API_BASE_URL + url;
+    const baseUrl = getApiBaseUrl();
+    return baseUrl + url;
   },
 
   getThumbnailUrl(fileId) {
     const token = localStorage.getItem('token');
     const path = `/api/files/${fileId}/thumbnail`;
     const url = token ? `${path}?token=${encodeURIComponent(token)}` : path;
-    return API_BASE_URL + url;
+    const baseUrl = getApiBaseUrl();
+    return baseUrl + url;
   },
   
   // 清除所有缓存

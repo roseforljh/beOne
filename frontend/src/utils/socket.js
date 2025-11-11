@@ -18,8 +18,9 @@ export const connectSocket = (token) => {
   // 动态获取 Socket URL
   const getSocketUrl = () => {
     if (Capacitor.isNativePlatform()) {
-      // 在原生 App 中，直接指向后端服务IP
-      return 'http://192.168.0.100:5000';
+      // 在原生 App 中，从 localStorage 读取用户配置的 API 地址
+      const savedApiUrl = localStorage.getItem('apiUrl');
+      return savedApiUrl || '';
     }
     // 在 Web 开发环境中
     const isDevelopment = window.location.port === '5173' ||

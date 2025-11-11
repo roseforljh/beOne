@@ -1,21 +1,44 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { motion } from 'framer-motion';
+import { Capacitor } from '@capacitor/core';
 import { useAuth } from '../contexts/AuthContext';
 import TaijiLogo from '../components/TaijiLogo';
 
 export default function Login() {
   const [username, setUsername] = useState('');
   const [password, setPassword] = useState('');
+  const [apiUrl, setApiUrl] = useState('');
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
   const { login, guestLogin } = useAuth();
   const navigate = useNavigate();
+  const isAndroid = Capacitor.isNativePlatform();
+
+  // 从 localStorage 恢复 API 地址
+  useEffect(() => {
+    if (isAndroid) {
+      const savedApiUrl = localStorage.getItem('apiUrl');
+      if (savedApiUrl) {
+        setApiUrl(savedApiUrl);
+      }
+    }
+  }, [isAndroid]);
 
   const handleSubmit = async (e) => {
     e.preventDefault();
     setError('');
     setLoading(true);
+
+    // 在安卓端,先保存 API 地址
+    if (isAndroid) {
+      if (!apiUrl.trim()) {
+        setError('请输入 API 地址');
+        setLoading(false);
+        return;
+      }
+      localStorage.setItem('apiUrl', apiUrl.trim());
+    }
 
     const result = await login(username, password);
 
@@ -68,6 +91,26 @@ export default function Login() {
 
           {/* 表单 */}
           <form onSubmit={handleSubmit} className="space-y-6">
+            {/* 安卓端显示 API 地址输入框 */}
+            {isAndroid && (
+              <div>
+                <label className="block text-sm font-medium text-taiji-black mb-2">
+                  API 地址
+                </label>
+                <input
+                  type="text"
+                  value={apiUrl}
+                  onChange={(e) => setApiUrl(e.target.value)}
+                  className="input-field"
+                  placeholder="例如: http://192.168.0.100:5000"
+                  required
+                />
+                <p className="text-xs text-taiji-gray-400 mt-1">
+                  请输入您的后端服务器地址
+                </p>
+              </div>
+            )}
+
             <div>
               <label className="block text-sm font-medium text-taiji-black mb-2">
                 用户名
@@ -79,7 +122,6 @@ export default function Login() {
                 className="input-field"
                 placeholder="请输入用户名"
                 required
-                autoFocus
               />
             </div>
 
@@ -125,35 +167,39 @@ export default function Login() {
             </motion.button>
           </form>
 
-          {/* 游客模式 */}
-          <div className="mt-4">
-            <motion.button
-              type="button"
-              disabled={loading}
-              onClick={handleGuestLogin}
-              whileHover={{ scale: 1.02 }}
-              whileTap={{ scale: 0.98 }}
-              className="w-full btn-secondary disabled:opacity-50 disabled:cursor-not-allowed"
-            >
-              {loading ? (
-                <span className="flex items-center justify-center gap-2">
-                  <TaijiLogo size={20} animate={true} />
-                  进入中...
-                </span>
-              ) : (
-                '👤 游客模式'
-              )}
-            </motion.button>
-          </div>
+          {/* 游客模式 - 仅在非安卓端显示 */}
+          {!isAndroid && (
+            <div className="mt-4">
+              <motion.button
+                type="button"
+                disabled={loading}
+                onClick={handleGuestLogin}
+                whileHover={{ scale: 1.02 }}
+                whileTap={{ scale: 0.98 }}
+                className="w-full btn-secondary disabled:opacity-50 disabled:cursor-not-allowed"
+              >
+                {loading ? (
+                  <span className="flex items-center justify-center gap-2">
+                    <TaijiLogo size={20} animate={true} />
+                    进入中...
+                  </span>
+                ) : (
+                  '👤 游客模式'
+                )}
+              </motion.button>
+            </div>
+          )}
 
           {/* 说明 */}
           <div className="mt-6 pt-6 border-t border-taiji-gray-200 space-y-2">
             <p className="text-xs text-taiji-gray-400 text-center">
               默认账号：root / 123456
             </p>
-            <p className="text-xs text-taiji-gray-400 text-center">
-              游客模式：可下载/预览公共文件，使用对话板
-            </p>
+            {!isAndroid && (
+              <p className="text-xs text-taiji-gray-400 text-center">
+                游客模式：可下载/预览公共文件，使用对话板
+              </p>
+            )}
           </div>
         </div>
       </motion.div>

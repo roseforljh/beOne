@@ -100,6 +100,9 @@ export default function Settings() {
     setPasswordLoading(false);
   };
 
+  // 游客模式限制
+  const isGuest = user?.is_guest;
+
   return (
     <div className="min-h-screen bg-taiji-gray-100">
       <Header />
@@ -114,10 +117,40 @@ export default function Settings() {
         >
           <div className="mb-6 md:mb-8">
             <h1 className="text-2xl md:text-3xl font-bold text-taiji-black mb-2">账号设置</h1>
-            <p className="text-sm md:text-base text-taiji-gray-500">管理您的账号信息</p>
+            <p className="text-sm md:text-base text-taiji-gray-500">
+              {isGuest ? '游客模式下无法修改账号信息' : '管理您的账号信息'}
+            </p>
           </div>
 
-          <div className="bg-taiji-white rounded-xl md:rounded-2xl shadow-lg border-2 border-taiji-gray-200 overflow-hidden">
+          {isGuest ? (
+            /* 游客模式提示 */
+            <motion.div
+              initial={{ opacity: 0, scale: 0.95 }}
+              animate={{ opacity: 1, scale: 1 }}
+              className="bg-taiji-white rounded-xl md:rounded-2xl shadow-lg border-2 border-taiji-gray-200 p-8 text-center"
+            >
+              <div className="mb-6">
+                <TaijiLogo size={80} animate={true} />
+              </div>
+              <h2 className="text-xl md:text-2xl font-bold text-taiji-black mb-4">
+                👤 游客模式
+              </h2>
+              <p className="text-taiji-gray-600 mb-6">
+                游客账号是临时账号，无法修改用户名和密码。
+                <br />
+                如需完整功能，请退出游客模式并使用正式账号登录。
+              </p>
+              <motion.button
+                whileHover={{ scale: 1.05 }}
+                whileTap={{ scale: 0.95 }}
+                onClick={logout}
+                className="px-6 py-3 bg-taiji-black text-taiji-white rounded-lg hover:bg-taiji-gray-800 transition-colors font-medium"
+              >
+                退出游客模式
+              </motion.button>
+            </motion.div>
+          ) : (
+            <div className="bg-taiji-white rounded-xl md:rounded-2xl shadow-lg border-2 border-taiji-gray-200 overflow-hidden">
             {/* 标签切换 */}
             <div className="flex border-b-2 border-taiji-gray-200">
               <button
@@ -287,7 +320,8 @@ export default function Settings() {
                 </motion.form>
               )}
             </div>
-          </div>
+            </div>
+          )}
         </motion.div>
       </main>
     </div>
