@@ -76,6 +76,18 @@ export class FileUploader {
       
       // 1. 初始化上传（统一走 axiosInstance，原生端使用后端 IP 而非 http://localhost）
       console.log('[步骤1] 开始初始化上传...');
+      console.log('[步骤1] API baseURL:', api.defaults.baseURL);
+      
+      // 移动端特殊处理：确保使用正确的API地址
+      let apiUrl = api.defaults.baseURL;
+      if (Capacitor.isNativePlatform()) {
+        const savedApiUrl = localStorage.getItem('apiUrl');
+        if (savedApiUrl && savedApiUrl !== apiUrl) {
+          console.log('[移动端] 使用存储的API地址:', savedApiUrl);
+          apiUrl = savedApiUrl;
+        }
+      }
+      
       const initStartTime = Date.now();
       const initResponse = await api.post('/api/upload/init', {
         filename: this.file.name,
@@ -100,8 +112,21 @@ export class FileUploader {
 
       // 3. 完成上传（统一走 axiosInstance）
       console.log('[步骤3] 开始完成上传...');
+      console.log('[步骤3] API baseURL:', api.defaults.baseURL);
+      
+      let apiUrl = api.defaults.baseURL;
+      
+      // 移动端特殊处理：确保使用正确的API地址
+      if (Capacitor.isNativePlatform()) {
+        const savedApiUrl = localStorage.getItem('apiUrl');
+        if (savedApiUrl && savedApiUrl !== apiUrl) {
+          console.log('[移动端] 使用存储的API地址:', savedApiUrl);
+          apiUrl = savedApiUrl;
+        }
+      }
+      
       const completeStartTime = Date.now();
-      const completeResponse = await api.post('/api/upload/complete', {
+      const completeResponse = await api.post('/api/upload/init', {
         uploadId: this.uploadId,
         filename: this.file.name,
         totalChunks: this.totalChunks,
@@ -203,16 +228,51 @@ export class FileUploader {
       };
     } catch (error) {
       if (this.aborted) {
+        console.log('[直接上传] 用户取消上传');
         return {
           success: false,
           cancelled: true,
           error: '上传已取消'
         };
       }
-      console.error('[直接上传失败]', error);
+      
+      console.error('[直接上传失败]', {
+        message: error.message,
+        name: error.name,
+        code: error.code,
+        stack: error.stack,
+        response: error.response ? {
+          status: error.response.status,
+          statusText: error.response.statusText,
+          data: error.response.data
+        } : null,
+        config: error.config ? {
+          url: error.config.url,
+          method: error.config.method,
+          headers: error.config.headers
+        } : null
+      });
+      
+      // 移动端特殊错误处理
+      if (Capacitor.isNativePlatform()) {
+        console.error('[移动端直接上传] 详细错误:', error);
+        
+        // 尝试获取更详细的错误信息
+        if (error.response) {
+          console.error('[移动端直接上传] 响应状态:', error.response.status);
+          console.error('[移动端直接上传] 响应数据:', error.response.data);
+        }
+        
+        // 检查网络连接状态
+        console.log('[移动端直接上传] 网络状态:', navigator.onLine ? navigator.onLine() : '未知');
+        
+        // 检查存储权限
+        console.log('[移动端直接上传] 存储权限:', navigator.storage && navigator.storage.persisted ? '可用' : '不可用');
+      }
+      
       return {
         success: false,
-        error: error.response?.data?.error || '上传失败'
+        error: error.response?.data?.error || error.message || '上传失败'
       };
     }
   }
