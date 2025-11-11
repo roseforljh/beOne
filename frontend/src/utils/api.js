@@ -16,10 +16,13 @@ const getBaseUrl = () => {
   if (import.meta.env.DEV) {
     return ''; // 开发模式使用 Vite 代理
   } else {
-    // 生产模式：使用与当前页面相同的协议和域名，但端口改为 5000
+    // 生产模式：使用与当前页面相同的协议和域名
     const protocol = window.location.protocol; // http: 或 https:
     const hostname = window.location.hostname; // 域名或IP
-    return `${protocol}//${hostname}:5000`;
+    const isHttps = protocol === 'https:';
+    // HTTPS环境下不指定端口（使用默认443端口），HTTP环境使用5000端口
+    const port = isHttps ? '' : ':5000';
+    return `${protocol}//${hostname}${port}`;
   }
 };
 
@@ -35,7 +38,9 @@ const getApiBaseUrl = () => {
   } else {
     const protocol = window.location.protocol;
     const hostname = window.location.hostname;
-    return `${protocol}//${hostname}:5000`;
+    const isHttps = protocol === 'https:';
+    const port = isHttps ? '' : ':5000';
+    return `${protocol}//${hostname}${port}`;
   }
 };
 

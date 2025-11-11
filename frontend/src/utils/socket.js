@@ -35,7 +35,8 @@ export const connectSocket = (token) => {
       // 生产环境：使用与当前页面相同的协议（http/https）
       const protocol = window.location.protocol === 'https:' ? 'https:' : 'http:';
       const hostname = window.location.hostname;
-      return `${protocol}//${hostname}:5000`;
+      const port = window.location.protocol === 'https:' ? '' : ':5000';
+      return `${protocol}//${hostname}${port}`;
     }
   };
 
@@ -43,6 +44,9 @@ export const connectSocket = (token) => {
 
   console.log('Socket连接地址:', socketUrl);
 
+  // 检查是否为HTTPS环境
+  const isSecureEnvironment = window.location.protocol === 'https:';
+  
   socket = io(socketUrl, {
     auth: { token },
     // 移动端优化：优先使用 WebSocket，减少 polling 延迟
@@ -65,7 +69,10 @@ export const connectSocket = (token) => {
     enablesXDR: false,
     // 心跳配置 - 与后端保持一致
     pingInterval: 25000,
-    pingTimeout: 60000 // 与后端的 pingTimeout 保持一致
+    pingTimeout: 60000, // 与后端的 pingTimeout 保持一致
+    // HTTPS环境下的特殊配置
+    secure: isSecureEnvironment,
+    rejectUnauthorized: false // 在生产环境中应该为true，但为了调试暂时设为false
   });
 
   socket.on('connect', () => {

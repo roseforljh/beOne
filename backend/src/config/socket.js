@@ -11,8 +11,9 @@ const onlineUsers = new Map();
 export const initSocket = (httpServer) => {
   const io = new Server(httpServer, {
     cors: {
-      origin: '*',
-      methods: ['GET', 'POST']
+      origin: '*', // 在生产环境中应该设置为具体的域名
+      methods: ['GET', 'POST'],
+      credentials: true
     },
     // 性能优化配置
     pingTimeout: 60000, // 60秒
@@ -26,7 +27,9 @@ export const initSocket = (httpServer) => {
     },
     httpCompression: {
       threshold: 1024
-    }
+    },
+    // 添加对代理的支持
+    allowEIO3: true
   });
 
   // Socket 认证中间件
