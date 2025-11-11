@@ -57,12 +57,10 @@ const CACHE_DURATION = Capacitor.isNativePlatform() ? 30000 : 5000; // 移动端
 // 请求拦截器
 axiosInstance.interceptors.request.use(
   (config) => {
-    // 添加 token（优先使用已设置的默认header，如果没有则从localStorage获取）
-    if (!config.headers.Authorization) {
-      const token = localStorage.getItem('token');
-      if (token) {
-        config.headers.Authorization = `Bearer ${token}`;
-      }
+    // 添加 token（始终从 localStorage 获取最新的 token）
+    const token = localStorage.getItem('token');
+    if (token) {
+      config.headers.Authorization = `Bearer ${token}`;
     }
     
     // 移动端优化：添加压缩支持
