@@ -99,9 +99,14 @@ axiosInstance.interceptors.request.use(
     console.log('[API Request]', {
       method: config.method?.toUpperCase(),
       url: config.url,
+      baseURL: config.baseURL,
+      fullURL: `${config.baseURL || ''}${config.url || ''}`,
       hasToken: !!token,
       tokenPreview: token ? token.substring(0, 30) + '...' : 'none',
-      headers: config.headers
+      headers: {
+        ...config.headers,
+        Authorization: config.headers.Authorization ? config.headers.Authorization.substring(0, 40) + '...' : 'none'
+      }
     });
     
     if (!token) {
@@ -128,9 +133,13 @@ axiosInstance.interceptors.response.use(
       console.error('[API] 403 Forbidden Error:', {
         url: config.url,
         method: config.method,
+        baseURL: config.baseURL,
+        fullURL: `${config.baseURL || ''}${config.url || ''}`,
         headers: config.headers,
         hasToken: !!config.headers.Authorization,
-        tokenPreview: config.headers.Authorization ? config.headers.Authorization.substring(0, 20) + '...' : 'none'
+        tokenPreview: config.headers.Authorization ? config.headers.Authorization.substring(0, 20) + '...' : 'none',
+        responseData: error.response.data,
+        requestTime: new Date().toISOString()
       });
     }
     

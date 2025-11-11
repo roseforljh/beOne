@@ -57,7 +57,7 @@ self.addEventListener('fetch', (event) => {
       fetch(request)
         .then((response) => {
           // 只缓存 GET 请求的成功响应
-          if (request.method === 'GET' && response.status === 200) {
+          if (request.method === 'GET' && response.ok) {
             const responseClone = response.clone();
             caches.open(RUNTIME_CACHE).then((cache) => {
               cache.put(request, responseClone).catch((err) => {
@@ -69,7 +69,21 @@ self.addEventListener('fetch', (event) => {
         })
         .catch((err) => {
           console.warn('[SW] API request failed:', err);
-          return caches.match(request);
+          return caches.match(request).then((cachedResponse) => {
+            // 如果有缓存的响应，返回一个有效的Response对象
+            if (cachedResponse) {
+              return cachedResponse;
+            }
+            // 如果没有缓存，返回一个简单的错误响应
+            return new Response(
+              JSON.stringify({ error: '网络请求失败，且无可用缓存' }),
+              {
+                status: 503,
+                statusText: 'Service Unavailable',
+                headers: { 'Content-Type': 'application/json' }
+              }
+            );
+          });
         })
     );
     return;
@@ -84,22 +98,32 @@ self.addEventListener('fetch', (event) => {
         if (cachedResponse) {
           // 后台更新缓存
           fetch(request).then((response) => {
-            if (response.status === 200) {
+            if (response.ok) {
               caches.open(CACHE_NAME).then((cache) => {
-                cache.put(request, response);
+                cache.put(request, response).catch((err) => {
+                  console.warn('[SW] Background cache update failed:', err);
+                });
               });
             }
+          }).catch((err) => {
+            console.warn('[SW] Background fetch failed:', err);
           });
           return cachedResponse;
         }
         return fetch(request).then((response) => {
-          if (response.status === 200) {
+          if (response.ok) {
             const responseClone = response.clone();
             caches.open(CACHE_NAME).then((cache) => {
-              cache.put(request, responseClone);
+              cache.put(request, responseClone).catch((err) => {
+                console.warn('[SW] Cache put failed:', err);
+              });
             });
           }
           return response;
+        }).catch((err) => {
+          console.warn('[SW] Static resource fetch failed:', err);
+          // 返回一个基本的错误响应
+          return new Response('资源加载失败', { status: 404 });
         });
       })
     );
@@ -108,8 +132,27 @@ self.addEventListener('fetch', (event) => {
 
   // HTML 页面 - 网络优先
   event.respondWith(
-    fetch(request).catch(() => {
-      return caches.match(request);
+    fetch(request).catch((err) => {
+      console.warn('[SW] HTML page fetch failed:', err);
+      return caches.match(request).then((cachedResponse) => {
+        if (cachedResponse) {
+          return cachedResponse;
+        }
+        // 如果没有缓存的HTML，返回一个基本页面
+        return new Response(`
+          <!DOCTYPE html>
+          <html>
+          <head><title>离线模式</title></head>
+          <body>
+            <h1>网络连接失败</h1>
+            <p>请检查网络连接后重试</p>
+          </body>
+          </html>
+        `, {
+          status: 503,
+          headers: { 'Content-Type': 'text/html' }
+        });
+      });
     })
   );
 });

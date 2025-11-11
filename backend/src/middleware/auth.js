@@ -22,8 +22,17 @@ export const authenticateToken = (req, res, next) => {
 
   jwt.verify(token, JWT_SECRET, (err, user) => {
     if (err) {
-      console.error('[Auth] ❌ Token 验证失败:', err.message);
-      return res.status(403).json({ error: '令牌无效或已过期', details: err.message });
+      console.error('[Auth] ❌ Token 验证失败:', {
+        message: err.message,
+        expiredAt: err.expiredAt,
+        token: token.substring(0, 30) + '...',
+        secret: JWT_SECRET.substring(0, 10) + '...'
+      });
+      return res.status(403).json({
+        error: '令牌无效或已过期',
+        details: err.message,
+        code: 'TOKEN_INVALID'
+      });
     }
 
     console.log('[Auth] ✅ Token 验证成功, 用户:', user.username);
@@ -33,10 +42,23 @@ export const authenticateToken = (req, res, next) => {
 };
 
 export const generateToken = (user) => {
-  return jwt.sign(
-    { id: user.id, username: user.username },
+  const token = jwt.sign(
+    {
+      id: user.id,
+      username: user.username,
+      is_guest: user.is_guest === 1 || user.is_guest === true
+    },
     JWT_SECRET,
     { expiresIn: '30d' }
   );
+  
+  console.log('[Auth] 🎫 生成新 Token:', {
+    userId: user.id,
+    username: user.username,
+    isGuest: user.is_guest === 1 || user.is_guest === true,
+    tokenPreview: token.substring(0, 30) + '...'
+  });
+  
+  return token;
 };
 
