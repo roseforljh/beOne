@@ -114,7 +114,7 @@ export class FileUploader {
       console.log('[步骤3] 开始完成上传...');
       console.log('[步骤3] API baseURL:', api.defaults.baseURL);
       
-      let apiUrl = api.defaults.baseURL;
+      apiUrl = api.defaults.baseURL;
       
       // 移动端特殊处理：确保使用正确的API地址
       if (Capacitor.isNativePlatform()) {
