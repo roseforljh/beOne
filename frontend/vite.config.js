@@ -34,9 +34,9 @@ export default defineConfig({
     minify: 'terser',
     terserOptions: {
       compress: {
-        drop_console: true,
+        drop_console: false,  // 临时启用 console.log 用于调试
         drop_debugger: true,
-        pure_funcs: ['console.log']
+        pure_funcs: []  // 临时允许 console.log
       }
     },
     // 代码分割策略
@@ -88,7 +88,7 @@ export default defineConfig({
   // 性能优化
   esbuild: {
     logOverride: { 'this-is-undefined-in-esm': 'silent' },
-    drop: ['console', 'debugger']
+    drop: ['debugger']  // 临时保留 console 用于调试
   }
 })
 

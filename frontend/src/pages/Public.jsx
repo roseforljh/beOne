@@ -11,16 +11,78 @@ import { formatFileSize, getFileIcon } from '../utils/uploadHelper';
 import { Capacitor } from '@capacitor/core';
 import { Filesystem, Directory } from '@capacitor/filesystem';
 import { Toast as CapacitorToast } from '@capacitor/toast';
+import { connectSocket } from '../utils/socket';
 
 export default function Public() {
-  const { user } = useAuth();
+  const { user, token } = useAuth();
   const [files, setFiles] = useState([]);
   const [loading, setLoading] = useState(true);
   const [previewFile, setPreviewFile] = useState(null);
 
   useEffect(() => {
     loadPublicFiles();
-  }, []);
+
+    // 如果用户已登录，连接 Socket 监听文件变化
+    if (user && token) {
+      const socket = connectSocket(token);
+
+      // 监听文件上传事件（只显示公开文件）
+      const handleFileUploaded = (file) => {
+        console.log('收到文件上传事件:', file);
+        if (file.is_public === 1) {
+          setFiles((prev) => {
+            // 检查文件是否已存在，避免重复
+            if (prev.some(f => f.id === file.id)) {
+              return prev;
+            }
+            return [file, ...prev];
+          });
+        }
+      };
+
+      // 监听文件更新事件
+      const handleFileUpdated = (data) => {
+        console.log('收到文件更新事件:', data);
+        setFiles((prev) => {
+          if (data.is_public === 1) {
+            // 文件变为公开，添加到列表
+            const exists = prev.some(f => f.id === data.id);
+            if (!exists) {
+              // 需要重新加载文件详情
+              loadPublicFiles();
+            } else {
+              // 更新现有文件
+              return prev.map(f =>
+                f.id === data.id ? { ...f, is_public: data.is_public } : f
+              );
+            }
+          } else {
+            // 文件变为私有，从列表中移除
+            return prev.filter(f => f.id !== data.id);
+          }
+          return prev;
+        });
+      };
+
+      // 监听文件删除事件
+      const handleFileDeleted = (data) => {
+        console.log('收到文件删除事件:', data);
+        setFiles((prev) => prev.filter(f => f.id !== data.id));
+      };
+
+      // 注册事件监听器
+      socket.on('file_uploaded', handleFileUploaded);
+      socket.on('file_updated', handleFileUpdated);
+      socket.on('file_deleted', handleFileDeleted);
+
+      // 清理函数
+      return () => {
+        socket.off('file_uploaded', handleFileUploaded);
+        socket.off('file_updated', handleFileUpdated);
+        socket.off('file_deleted', handleFileDeleted);
+      };
+    }
+  }, [user, token]);
 
   const loadPublicFiles = async () => {
     setLoading(true);
