@@ -17,5 +17,8 @@
     "@capacitor/filesystem": "^7.1.4",
     "@capacitor/keyboard": "^7.0.3",
     "@capacitor/toast": "^7.0.2"
+  },
+  "devDependencies": {
+    "@capacitor/assets": "^3.0.5"
   }
 }

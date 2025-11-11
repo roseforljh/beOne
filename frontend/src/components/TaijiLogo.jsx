@@ -39,4 +39,3 @@ export default function TaijiLogo({ size = 100, animate = true, className = '' }
     </motion.div>
   );
 }
-
