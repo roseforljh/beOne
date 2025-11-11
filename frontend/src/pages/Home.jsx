@@ -44,6 +44,12 @@ export default function Home() {
     const handleFileDeleted = (data) => {
       console.log('收到文件删除事件:', data);
       setFiles((prev) => prev.filter(f => f.id !== data.id));
+      
+      // 立即刷新文件列表，确保缓存被清除
+      setTimeout(() => {
+        console.log('[Home] 文件删除后刷新列表');
+        loadFiles(false);
+      }, 100);
     };
 
     // 注册事件监听器
@@ -59,11 +65,13 @@ export default function Home() {
     };
   }, [token]);
 
-  const loadFiles = async (useCache = true) => {
+  const loadFiles = async (useCache = false) => {
     setLoading(true);
     try {
+      // 在删除操作后，强制不使用缓存
       const data = await api.getFiles(useCache);
       setFiles(data || []);
+      console.log('[Home] 文件加载完成，数量:', data?.length || 0);
     } catch (error) {
       console.error('加载文件失败:', error);
       // 出错时设置为空数组，避免后续错误
@@ -81,7 +89,13 @@ export default function Home() {
   };
 
   const handleFileDelete = (fileId) => {
+    console.log('[Home] 本地删除文件:', fileId);
     setFiles(files.filter(f => f.id !== fileId));
+    
+    // 立即刷新，确保与服务器同步
+    setTimeout(() => {
+      loadFiles(false);
+    }, 200);
   };
 
   const filteredFiles = (files || []).filter(file => {

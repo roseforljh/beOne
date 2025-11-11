@@ -254,33 +254,62 @@ export const api = {
 
   async toggleVisibility(fileId) {
     const response = await axiosInstance.patch(`/api/files/${fileId}/visibility`);
-    // 清除所有缓存
+    
+    // 清除所有缓存，确保可见性更新立即生效
+    console.log('[API] 清除文件缓存，更新可见性，文件ID:', fileId);
+    
+    // 清除内存缓存
     requestCache.delete('files');
     requestCache.delete('public-files');
+    requestCache.delete('files_list');
+    
+    // 清除 LRU 缓存
     apiCache.delete('files_list');
+    apiCache.delete('public-files');
+    
     // 清除 IndexedDB 缓存
     try {
       await dbCache.deleteCachedResponse('files_list');
+      await dbCache.deleteCachedResponse('public-files');
+      console.log('[API] IndexedDB 缓存已清除（可见性更新）');
     } catch (err) {
       console.warn('[IndexedDB] 删除缓存失败:', err);
     }
+    
     return response.data;
   },
 
   async deleteFile(fileId) {
     const response = await axiosInstance.delete(`/api/files/${fileId}`);
-    // 清除所有缓存
+    
+    // 强制清除所有缓存，确保删除操作立即生效
+    console.log('[API] 清除所有文件缓存，删除文件ID:', fileId);
+    
+    // 清除内存缓存
     requestCache.delete('files');
     requestCache.delete('public-files');
+    requestCache.delete('files_list');
+    
+    // 清除 LRU 缓存
     apiCache.delete('files_list');
+    apiCache.delete('public-files');
+    
     // 清除 IndexedDB 缓存
     try {
       await dbCache.deleteCachedResponse('files_list');
+      await dbCache.deleteCachedResponse('public-files');
+      console.log('[API] IndexedDB 缓存已清除');
     } catch (err) {
       console.warn('[IndexedDB] 删除缓存失败:', err);
     }
+    
     // 清空布隆过滤器（因为布隆过滤器不支持精确删除）
     fileExistsFilter.clear();
+    
+    // 强制刷新页面缓存，确保下次 loadFiles 不使用缓存
+    const now = Date.now();
+    console.log('[API] 文件删除完成，时间戳:', now);
+    
     return response.data;
   },
 

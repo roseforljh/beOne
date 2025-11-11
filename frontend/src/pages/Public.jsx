@@ -68,6 +68,12 @@ export default function Public() {
       const handleFileDeleted = (data) => {
         console.log('收到文件删除事件:', data);
         setFiles((prev) => prev.filter(f => f.id !== data.id));
+        
+        // 立即刷新公开文件列表，确保缓存被清除
+        setTimeout(() => {
+          console.log('[Public] 文件删除后刷新列表');
+          loadPublicFiles();
+        }, 100);
       };
 
       // 注册事件监听器
@@ -87,9 +93,11 @@ export default function Public() {
   const loadPublicFiles = async () => {
     setLoading(true);
     try {
-      const data = await api.getPublicFiles();
+      // 强制不使用缓存，确保显示最新的文件列表
+      const data = await api.getPublicFiles(false);
       // 确保 data 是数组,防止 undefined 导致白屏
       setFiles(Array.isArray(data) ? data : []);
+      console.log('[Public] 公开文件加载完成，数量:', data?.length || 0);
     } catch (error) {
       console.error('加载公开文件失败:', error);
       // 发生错误时设置为空数组
