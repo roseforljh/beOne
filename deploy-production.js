@@ -31,7 +31,8 @@ const main = async () => {
   try {
     // 检查是否需要 SSL 配置
     if (needSSL()) {
-      console.log('🔍 检测到未配置 SSL...\n');
+      console.log('🔍 检测到未配置 SSL...
+');
       const answer = await askQuestion('是否需要配置 HTTPS/SSL？(y/n，推荐选 y): ');
       
       if (answer.toLowerCase() === 'y' || answer.toLowerCase() === 'yes') {
@@ -46,8 +47,7 @@ const main = async () => {
           return;
         } catch (error) {
           console.error('
-❌ SSL 配置失败，继续普通部署...
-');
+❌ SSL 配置失败，继续普通部署...\n');
         }
       }
     }
@@ -91,8 +91,7 @@ const main = async () => {
     console.log('🌐 前端页面: http://localhost:4173');
     console.log('📱 移动端API: http://localhost:5000');
     console.log('━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━');
-    console.log('
-💡 常用命令:');
+    console.log('\n💡 常用命令:');
     console.log('  查看日志: pm2 logs');
     console.log('  重启服务: pm2 restart all');
     console.log('  停止服务: pm2 stop all');
@@ -105,7 +104,8 @@ const main = async () => {
   } catch (error) {
     console.error('
 ❌ 部署失败:', error.message);
-    console.error('\n💡 故障排查:');
+    console.error('
+💡 故障排查:');
     console.error('  1. 确保已安装 Node.js 和 npm');
     console.error('  2. 确保已全局安装 PM2: npm install -g pm2');
     console.error('  3. 检查端口 5000 和 4173 是否被占用');
