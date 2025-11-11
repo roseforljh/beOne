@@ -89,7 +89,7 @@ export default function Chat() {
       setConversations(fetchedConversations);
 
       if (selectFirst && fetchedConversations.length > 0) {
-        setCurrentConversationId(fetchedConversations.id);
+        setCurrentConversationId(fetchedConversations[0].id);
       } else if (fetchedConversations.length === 0) {
         setCurrentConversationId(null); // 没有会话了，清空当前会话ID
       }
@@ -121,7 +121,7 @@ export default function Chat() {
       const fetchedConversations = response.data.conversations;
       setConversations(fetchedConversations);
       if (fetchedConversations.length > 0) {
-        setCurrentConversationId(fetchedConversations.id);
+        setCurrentConversationId(fetchedConversations[0].id);
         // loadMessages 会处理 loading 状态
       } else {
         setCurrentConversationId(null);
@@ -222,7 +222,7 @@ export default function Chat() {
       if (currentConversationId === data.conversationId) {
         setConversations(prev => {
           const remaining = prev.filter(c => c.id !== data.conversationId);
-          const nextId = remaining.length > 0 ? remaining.id : null;
+          const nextId = remaining.length > 0 ? remaining[0].id : null;
           setCurrentConversationId(nextId);
           return remaining;
         });

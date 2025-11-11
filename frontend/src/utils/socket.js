@@ -23,14 +23,20 @@ export const connectSocket = (token) => {
       const savedApiUrl = localStorage.getItem('apiUrl');
       return savedApiUrl || API_CONFIG.API_URL;
     }
-    // 在 Web 开发环境中
+    // 在 Web 环境中
     const isDevelopment = window.location.port === '5173' ||
                           window.location.hostname === 'localhost' ||
                           window.location.hostname === '127.0.0.1';
     
-    return isDevelopment
-      ? `http://${window.location.hostname}:5000`
-      : window.location.origin;
+    if (isDevelopment) {
+      // 开发环境连接到本地5000端口
+      return `http://${window.location.hostname}:5000`;
+    } else {
+      // 生产环境：从当前页面URL获取主机名，但连接到5000端口
+      const protocol = window.location.protocol === 'https:' ? 'https:' : 'http:';
+      const hostname = window.location.hostname;
+      return `${protocol}//${hostname}:5000`;
+    }
   };
 
   const socketUrl = getSocketUrl();
