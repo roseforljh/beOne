@@ -33,6 +33,10 @@ android {
                 keyPassword keystoreProperties['keyPassword']
                 storeFile file(keystoreProperties['storeFile'])
                 storePassword keystoreProperties['storePassword']
+            } else {
+                // 如果没有密钥文件，使用 debug 签名
+                // 注意：这只适用于测试，不要用于生产发布
+                storeFile file('debug.keystore')
             }
         }
     }
@@ -46,7 +50,13 @@ android {
             // Debug 版本可以使用 localhost 或任意 API
         }
         release {
-            signingConfig signingConfigs.release
+            // 只有在密钥文件存在时才使用 release 签名配置
+            if (keystorePropertiesFile.exists()) {
+                signingConfig signingConfigs.release
+            } else {
+                // 使用 debug 签名配置作为后备
+                signingConfig signingConfigs.debug
+            }
             minifyEnabled true
             shrinkResources true
             debuggable false
@@ -54,8 +64,8 @@ android {
         }
     }
     compileOptions {
-        sourceCompatibility JavaVersion.VERSION_22
-        targetCompatibility JavaVersion.VERSION_22
+        sourceCompatibility JavaVersion.VERSION_17
+        targetCompatibility JavaVersion.VERSION_17
     }
 }
 
