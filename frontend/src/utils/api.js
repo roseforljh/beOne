@@ -57,10 +57,12 @@ const CACHE_DURATION = Capacitor.isNativePlatform() ? 30000 : 5000; // 移动端
 // 请求拦截器
 axiosInstance.interceptors.request.use(
   (config) => {
-    // 添加 token
-    const token = localStorage.getItem('token');
-    if (token) {
-      config.headers.Authorization = `Bearer ${token}`;
+    // 添加 token（优先使用已设置的默认header，如果没有则从localStorage获取）
+    if (!config.headers.Authorization) {
+      const token = localStorage.getItem('token');
+      if (token) {
+        config.headers.Authorization = `Bearer ${token}`;
+      }
     }
     
     // 移动端优化：添加压缩支持
@@ -74,6 +76,13 @@ axiosInstance.interceptors.request.use(
         ...config.params,
         _t: Date.now()
       };
+    }
+    
+    // 调试日志：检查token是否正确传递
+    if (config.headers.Authorization) {
+      console.log('[API] Request with token:', config.headers.Authorization.substring(0, 20) + '...');
+    } else {
+      console.warn('[API] Request without Authorization header');
     }
     
     return config;
@@ -90,6 +99,17 @@ axiosInstance.interceptors.response.use(
   },
   async (error) => {
     const config = error.config;
+    
+    // 403错误详细日志
+    if (error.response?.status === 403) {
+      console.error('[API] 403 Forbidden Error:', {
+        url: config.url,
+        method: config.method,
+        headers: config.headers,
+        hasToken: !!config.headers.Authorization,
+        tokenPreview: config.headers.Authorization ? config.headers.Authorization.substring(0, 20) + '...' : 'none'
+      });
+    }
     
     // 网络错误重试机制（移动端优化）
     if (Capacitor.isNativePlatform() && !config._retry &&
@@ -110,6 +130,7 @@ axiosInstance.interceptors.response.use(
     // 统一错误处理
     if (error.response?.status === 401) {
       // Token 过期，清除并跳转登录
+      console.warn('[API] Token expired, clearing and redirecting to login');
       localStorage.removeItem('token');
       localStorage.removeItem('user');
       window.location.href = '/login';
