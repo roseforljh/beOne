@@ -1,12 +1,13 @@
 import axios from 'axios';
 import { Capacitor } from '@capacitor/core';
+import { API_CONFIG } from '../config/api.config';
 
 // 根据平台动态设置 baseURL
 const getBaseUrl = () => {
   if (Capacitor.isNativePlatform()) {
     // 在原生 App 中，从 localStorage 读取用户配置的 API 地址
     const savedApiUrl = localStorage.getItem('apiUrl');
-    return savedApiUrl || '';
+    return savedApiUrl || API_CONFIG.API_URL;
   }
   // 在 Web 环境中，使用相对路径，依赖 Vite 代理或部署环境的配置
   return '';
@@ -16,7 +17,7 @@ const getBaseUrl = () => {
 const getApiBaseUrl = () => {
   if (Capacitor.isNativePlatform()) {
     const savedApiUrl = localStorage.getItem('apiUrl');
-    return savedApiUrl || '';
+    return savedApiUrl || API_CONFIG.API_URL;
   }
   return '';
 };

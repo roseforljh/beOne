@@ -1,5 +1,6 @@
 import { io } from 'socket.io-client';
 import { Capacitor } from '@capacitor/core';
+import { API_CONFIG } from '../config/api.config';
 
 let socket = null;
 let heartbeatInterval = null;
@@ -20,7 +21,7 @@ export const connectSocket = (token) => {
     if (Capacitor.isNativePlatform()) {
       // 在原生 App 中，从 localStorage 读取用户配置的 API 地址
       const savedApiUrl = localStorage.getItem('apiUrl');
-      return savedApiUrl || '';
+      return savedApiUrl || API_CONFIG.API_URL;
     }
     // 在 Web 开发环境中
     const isDevelopment = window.location.port === '5173' ||

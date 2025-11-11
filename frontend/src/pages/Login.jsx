@@ -4,6 +4,7 @@ import { motion } from 'framer-motion';
 import { Capacitor } from '@capacitor/core';
 import { useAuth } from '../contexts/AuthContext';
 import TaijiLogo from '../components/TaijiLogo';
+import { API_CONFIG } from '../config/api.config';
 
 export default function Login() {
   const [username, setUsername] = useState('');
@@ -21,6 +22,9 @@ export default function Login() {
       const savedApiUrl = localStorage.getItem('apiUrl');
       if (savedApiUrl) {
         setApiUrl(savedApiUrl);
+      } else {
+        // 使用配置文件中的默认值
+        setApiUrl(API_CONFIG.API_URL);
       }
     }
   }, [isAndroid]);
