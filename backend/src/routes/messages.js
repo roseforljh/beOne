@@ -113,16 +113,25 @@ router.delete('/', authenticateToken, (req, res) => {
       return res.status(500).json({ error: '清空失败' });
     }
 
-    // 通过 WebSocket 通知该用户的所有会话（手机和电脑）消息已清空
-    const io = req.app.get('io');
-    if (io) {
-      io.to(`user_${userId}`).emit('messages_cleared', {
-        userId: userId,
-        conversationId: conversationId
-      });
-    }
+    // 更新会话的 updated_at 时间戳
+    db.run('UPDATE conversations SET updated_at = CURRENT_TIMESTAMP WHERE id = ?', [conversationId], (updateErr) => {
+      const io = req.app.get('io');
+      if (io) {
+        // 通知该用户的所有会话（手机和电脑）消息已清空
+        io.to(`user_${userId}`).emit('messages_cleared', {
+          userId: userId,
+          conversationId: conversationId
+        });
+        
+        // 通知该用户的所有会话更新会话列表（更新消息数量）
+        io.to(`user_${userId}`).emit('conversation_updated', {
+          conversationId: conversationId,
+          updatedAt: new Date().toISOString()
+        });
+      }
 
-    res.json({ success: true });
+      res.json({ success: true });
+    });
   });
 });
 

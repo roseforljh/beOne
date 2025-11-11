@@ -150,30 +150,123 @@ const ChatMessage = memo(function ChatMessage({ message, isOwn, currentSessionId
           {message.type === 'text' ? (
             <p className="whitespace-pre-wrap break-all">{message.content}</p>
           ) : message.type === 'file' && message.file ? (
-            <div className="flex items-center gap-2 md:gap-3 min-w-[180px] md:min-w-[200px]">
-              <div className="text-2xl md:text-3xl">{getFileIcon(message.file.mimetype)}</div>
-              <div className="flex-1 min-w-0">
-                <p className="font-medium truncate text-sm md:text-base">
-                  {message.file.original_name || '未知文件'}
-                </p>
-                <p className="text-xs opacity-75">
-                  {message.file.size ? formatFileSize(message.file.size) : '未知大小'}
-                </p>
-              </div>
-              <button
-                onClick={(e) => {
-                  e.stopPropagation();
-                  handleDownload();
-                }}
-                className={`px-2 md:px-3 py-1 rounded-lg text-xs font-medium transition-colors ${
-                  isOwn
-                    ? 'bg-taiji-white text-taiji-black hover:bg-taiji-gray-100'
-                    : 'bg-taiji-black text-taiji-white hover:bg-taiji-gray-800'
-                }`}
-              >
-                下载
-              </button>
-            </div>
+            (() => {
+              const isImage = message.file.mimetype?.startsWith('image/');
+              const isVideo = message.file.mimetype?.startsWith('video/');
+              
+              // 图片类型：始终显示缩略图，无论大小
+              if (isImage) {
+                return (
+                  <div className="flex flex-col gap-2 w-full max-w-[280px] md:max-w-[360px]">
+                    <div className="relative w-full">
+                      <img
+                        src={api.getThumbnailUrl(message.file.id)}
+                        alt={message.file.original_name}
+                        className="w-full h-auto rounded-lg object-cover"
+                        loading="lazy"
+                        onError={(e) => {
+                          // 如果缩略图加载失败，尝试加载预览图
+                          e.target.onerror = null;
+                          e.target.src = api.getPreviewUrl(message.file.id);
+                        }}
+                      />
+                    </div>
+                    <div className="flex items-center justify-between gap-2">
+                      <div className="flex-1 min-w-0">
+                        <p className="text-xs opacity-75 truncate">
+                          {message.file.original_name}
+                        </p>
+                        <p className="text-xs opacity-60">
+                          {message.file.size ? formatFileSize(message.file.size) : ''}
+                        </p>
+                      </div>
+                      <button
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          handleDownload();
+                        }}
+                        className={`px-2 py-1 rounded-lg text-xs font-medium transition-colors whitespace-nowrap ${
+                          isCurrentSession
+                            ? 'bg-taiji-white text-taiji-black hover:bg-taiji-gray-100'
+                            : 'bg-taiji-black text-taiji-white hover:bg-taiji-gray-800'
+                        }`}
+                      >
+                        下载
+                      </button>
+                    </div>
+                  </div>
+                );
+              }
+              
+              // 视频类型：始终显示视频预览，无论大小
+              if (isVideo) {
+                return (
+                  <div className="flex flex-col gap-2 w-full max-w-[280px] md:max-w-[360px]">
+                    <div className="relative w-full">
+                      <video
+                        src={api.getPreviewUrl(message.file.id)}
+                        controls
+                        className="w-full h-auto rounded-lg"
+                        preload="metadata"
+                      >
+                        您的浏览器不支持视频播放
+                      </video>
+                    </div>
+                    <div className="flex items-center justify-between gap-2">
+                      <div className="flex-1 min-w-0">
+                        <p className="text-xs opacity-75 truncate">
+                          {message.file.original_name}
+                        </p>
+                        <p className="text-xs opacity-60">
+                          {message.file.size ? formatFileSize(message.file.size) : ''}
+                        </p>
+                      </div>
+                      <button
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          handleDownload();
+                        }}
+                        className={`px-2 py-1 rounded-lg text-xs font-medium transition-colors whitespace-nowrap ${
+                          isCurrentSession
+                            ? 'bg-taiji-white text-taiji-black hover:bg-taiji-gray-100'
+                            : 'bg-taiji-black text-taiji-white hover:bg-taiji-gray-800'
+                        }`}
+                      >
+                        下载
+                      </button>
+                    </div>
+                  </div>
+                );
+              }
+              
+              // 其他文件类型：显示文件图标
+              return (
+                <div className="flex items-center gap-2 md:gap-3 min-w-[180px] md:min-w-[200px]">
+                  <div className="text-2xl md:text-3xl">{getFileIcon(message.file.mimetype)}</div>
+                  <div className="flex-1 min-w-0">
+                    <p className="font-medium truncate text-sm md:text-base">
+                      {message.file.original_name || '未知文件'}
+                    </p>
+                    <p className="text-xs opacity-75">
+                      {message.file.size ? formatFileSize(message.file.size) : '未知大小'}
+                    </p>
+                  </div>
+                  <button
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      handleDownload();
+                    }}
+                    className={`px-2 md:px-3 py-1 rounded-lg text-xs font-medium transition-colors ${
+                      isCurrentSession
+                        ? 'bg-taiji-white text-taiji-black hover:bg-taiji-gray-100'
+                        : 'bg-taiji-black text-taiji-white hover:bg-taiji-gray-800'
+                    }`}
+                  >
+                    下载
+                  </button>
+                </div>
+              );
+            })()
           ) : null}
           </div>
 
