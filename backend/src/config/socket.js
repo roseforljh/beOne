@@ -3,7 +3,8 @@ import jwt from 'jsonwebtoken';
 import { db } from './database.js';
 // import { registerGuestSession, unregisterGuestSession, updateGuestActivity } from '../utils/guestCleanup.js';
 
-const JWT_SECRET = process.env.JWT_SECRET || 'taiji_secret_key_change_in_production';
+// 确保JWT_SECRET在所有环境下都一致
+const JWT_SECRET = 'taiji_secret_key_change_in_production';
 
 // 存储在线用户
 const onlineUsers = new Map();

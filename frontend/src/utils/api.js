@@ -80,6 +80,8 @@ axiosInstance.interceptors.request.use(
     const token = localStorage.getItem('token');
     if (token) {
       config.headers.Authorization = `Bearer ${token}`;
+      // 确保在HTTPS环境下也能正确传递token
+      config.headers['Content-Type'] = 'application/json';
     }
     
     // 移动端优化：添加压缩支持

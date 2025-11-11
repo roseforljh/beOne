@@ -47,8 +47,11 @@ export const connectSocket = (token) => {
   // 检查是否为HTTPS环境
   const isSecureEnvironment = window.location.protocol === 'https:';
   
+  // 确保token格式正确
+  const formattedToken = token && token.startsWith('Bearer ') ? token.substring(7) : token;
+  
   socket = io(socketUrl, {
-    auth: { token },
+    auth: { token: formattedToken },
     // 移动端优化：优先使用 WebSocket，减少 polling 延迟
     transports: Capacitor.isNativePlatform() ? ['websocket'] : ['websocket', 'polling'],
     reconnection: true,
@@ -72,7 +75,11 @@ export const connectSocket = (token) => {
     pingTimeout: 60000, // 与后端的 pingTimeout 保持一致
     // HTTPS环境下的特殊配置
     secure: isSecureEnvironment,
-    rejectUnauthorized: false // 在生产环境中应该为true，但为了调试暂时设为false
+    rejectUnauthorized: false, // 在生产环境中应该为true，但为了调试暂时设为false
+    // 确保在HTTPS环境下正确传递认证信息
+    extraHeaders: isSecureEnvironment ? {
+      'Authorization': `Bearer ${formattedToken}`
+    } : {}
   });
 
   socket.on('connect', () => {

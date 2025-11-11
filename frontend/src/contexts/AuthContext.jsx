@@ -33,6 +33,11 @@ export const AuthProvider = ({ children }) => {
         setUser(JSON.parse(savedUser));
         // 设置 axios 默认 header（统一使用 axiosInstance）
         axios.defaults.headers.common['Authorization'] = `Bearer ${savedToken}`;
+        
+        // 确保在HTTPS环境下也能正确设置cookie相关属性
+        if (window.location.protocol === 'https:') {
+          document.cookie = `token=${savedToken}; path=/; secure; samesite=strict`;
+        }
       } else {
         // 发现损坏或占位字符串，立即清理，避免后续解析
         localStorage.removeItem('token');
@@ -66,6 +71,11 @@ export const AuthProvider = ({ children }) => {
       // 设置 axios 默认 header（统一使用 axiosInstance）
       axios.defaults.headers.common['Authorization'] = `Bearer ${newToken}`;
       
+      // 在HTTPS环境下设置安全cookie
+      if (window.location.protocol === 'https:') {
+        document.cookie = `token=${newToken}; path=/; secure; samesite=strict`;
+      }
+      
       return { success: true };
     } catch (error) {
       return {
@@ -93,6 +103,11 @@ export const AuthProvider = ({ children }) => {
       // 设置 axios 默认 header（统一使用 axiosInstance）
       axios.defaults.headers.common['Authorization'] = `Bearer ${newToken}`;
       
+      // 在HTTPS环境下设置安全cookie
+      if (window.location.protocol === 'https:') {
+        document.cookie = `token=${newToken}; path=/; secure; samesite=strict`;
+      }
+      
       return { success: true };
     } catch (error) {
       return {
@@ -108,6 +123,11 @@ export const AuthProvider = ({ children }) => {
     localStorage.removeItem('token');
     localStorage.removeItem('user');
     delete axios.defaults.headers.common['Authorization'];
+    
+    // 清除HTTPS环境下的安全cookie
+    if (window.location.protocol === 'https:') {
+      document.cookie = 'token=; path=/; expires=Thu, 01 Jan 1970 00:00:00 GMT; secure; samesite=strict';
+    }
   };
 
   return (
