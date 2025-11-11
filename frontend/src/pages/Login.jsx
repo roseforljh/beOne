@@ -21,6 +21,9 @@ export default function Login() {
   const passwordInputRef = useRef(null);
   const apiUrlInputRef = useRef(null);
   
+  // 保存用户名的备份，防止被清空
+  const usernameBackupRef = useRef('');
+  
   // 输入法组合状态管理
   const [isComposingUsername, setIsComposingUsername] = useState(false);
   const [isComposingPassword, setIsComposingPassword] = useState(false);
@@ -44,6 +47,8 @@ export default function Login() {
     const value = e.target.value;
     console.log('用户名输入:', value);
     setUsername(value);
+    // 更新备份
+    usernameBackupRef.current = value;
   };
 
   // 处理密码输入
@@ -51,6 +56,14 @@ export default function Login() {
     const value = e.target.value;
     console.log('密码输入:', value);
     setPassword(value);
+    // 在密码输入时检查用户名是否被清空
+    setTimeout(() => {
+      if (usernameInputRef.current && !usernameInputRef.current.value && usernameBackupRef.current) {
+        console.log('检测到用户名被清空，恢复备份:', usernameBackupRef.current);
+        usernameInputRef.current.value = usernameBackupRef.current;
+        setUsername(usernameBackupRef.current);
+      }
+    }, 0);
   };
 
   // 处理API地址输入
@@ -71,6 +84,8 @@ export default function Login() {
     console.log('用户名输入法组合结束:', e.target.value);
     setIsComposingUsername(false);
     setUsername(e.target.value);
+    // 更新备份
+    usernameBackupRef.current = e.target.value;
   };
 
   // 密码输入法组合开始
@@ -104,6 +119,8 @@ export default function Login() {
     console.log('用户名输入框失焦:', e.target.value);
     // 确保用户名状态正确
     setUsername(e.target.value);
+    // 更新备份
+    usernameBackupRef.current = e.target.value;
   };
 
   // 添加密码输入框聚焦处理
@@ -114,6 +131,12 @@ export default function Login() {
       console.log('修复用户名输入框值:', usernameInputRef.current.value, '->', username);
       usernameInputRef.current.value = username;
     }
+    // 如果用户名输入框为空但有备份，恢复备份
+    if (usernameInputRef.current && !usernameInputRef.current.value && usernameBackupRef.current) {
+      console.log('从备份恢复用户名:', usernameBackupRef.current);
+      usernameInputRef.current.value = usernameBackupRef.current;
+      setUsername(usernameBackupRef.current);
+    }
   };
 
   const handleSubmit = async (e) => {
@@ -121,12 +144,22 @@ export default function Login() {
     setError('');
     setLoading(true);
 
-    // 从 ref 获取当前值，而不是从状态
-    const currentUsername = usernameInputRef.current?.value || '';
+    // 从 ref 获取当前值，如果为空则使用备份
+    let currentUsername = usernameInputRef.current?.value || '';
     const currentPassword = passwordInputRef.current?.value || '';
     const currentApiUrl = apiUrlInputRef.current?.value || '';
 
-    console.log('提交表单:', { username: currentUsername, password: currentPassword, apiUrl: currentApiUrl });
+    // 如果用户名为空但备份不为空，使用备份
+    if (!currentUsername && usernameBackupRef.current) {
+      console.log('用户名为空，使用备份:', usernameBackupRef.current);
+      currentUsername = usernameBackupRef.current;
+      // 同时更新输入框
+      if (usernameInputRef.current) {
+        usernameInputRef.current.value = currentUsername;
+      }
+    }
+
+    console.log('提交表单 - 用户名:', currentUsername, '密码:', currentPassword, 'API地址:', currentApiUrl);
 
     // 在安卓端,先保存 API 地址
     if (isAndroid) {

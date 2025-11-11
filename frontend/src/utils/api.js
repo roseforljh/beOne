@@ -32,8 +32,8 @@ const axiosInstance = axios.create({
   baseURL: API_BASE_URL,
   timeout: 10000, // 10秒超时（移动端优化）
   headers: {
-    'Content-Type': 'application/json',
-    'Connection': 'keep-alive'
+    'Content-Type': 'application/json'
+    // 移除 'Connection': 'keep-alive' 因为这是不安全的头部，浏览器会拒绝设置
   },
   // 移动端网络优化配置
   maxRedirects: 3,

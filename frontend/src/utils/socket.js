@@ -45,7 +45,7 @@ export const connectSocket = (token) => {
     reconnectionDelay: 500, // 减少重连延迟（移动端优化）
     reconnectionDelayMax: 3000, // 减少最大重连延迟
     reconnectionAttempts: 5, // 减少重连次数，快速失败
-    timeout: 8000, // 减少超时时间（移动端优化）
+    timeout: 20000, // 增加超时时间，避免与后端 pingTimeout 不匹配
     // 性能优化配置
     upgrade: true,
     rememberUpgrade: true,
@@ -57,9 +57,9 @@ export const connectSocket = (token) => {
     multiplex: true,
     // 启用二进制传输优化
     enablesXDR: false,
-    // 心跳配置
+    // 心跳配置 - 与后端保持一致
     pingInterval: 25000,
-    pingTimeout: 5000
+    pingTimeout: 60000 // 与后端的 pingTimeout 保持一致
   });
 
   socket.on('connect', () => {
