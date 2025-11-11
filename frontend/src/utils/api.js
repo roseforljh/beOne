@@ -13,14 +13,12 @@ const getBaseUrl = () => {
     return savedApiUrl || API_CONFIG.API_URL;
   }
   // 在 Web 环境中
-  // 开发模式：使用相对路径（Vite 代理会处理）
-  // 生产模式：使用当前域名的 5000 端口
   if (import.meta.env.DEV) {
     return ''; // 开发模式使用 Vite 代理
   } else {
-    // 生产模式：使用当前域名 + 5000 端口
-    const protocol = window.location.protocol;
-    const hostname = window.location.hostname;
+    // 生产模式：使用与当前页面相同的协议和域名，但端口改为 5000
+    const protocol = window.location.protocol; // http: 或 https:
+    const hostname = window.location.hostname; // 域名或IP
     return `${protocol}//${hostname}:5000`;
   }
 };
