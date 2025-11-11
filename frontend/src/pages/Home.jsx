@@ -59,10 +59,10 @@ export default function Home() {
     };
   }, [token]);
 
-  const loadFiles = async () => {
+  const loadFiles = async (useCache = true) => {
     setLoading(true);
     try {
-      const data = await api.getFiles();
+      const data = await api.getFiles(useCache);
       setFiles(data);
     } catch (error) {
       console.error('加载文件失败:', error);
@@ -150,7 +150,17 @@ export default function Home() {
           </div>
 
           {loading ? (
-            <LoadingSpinner message="加载文件列表..." />
+            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6">
+              {/* 骨架屏 */}
+              {[1, 2, 3, 4, 5, 6, 7, 8].map((i) => (
+                <div key={i} className="card p-4 animate-pulse">
+                  <div className="w-full h-48 bg-taiji-gray-200 rounded-lg mb-3"></div>
+                  <div className="h-4 bg-taiji-gray-200 rounded mb-2"></div>
+                  <div className="h-3 bg-taiji-gray-200 rounded w-2/3 mb-2"></div>
+                  <div className="h-3 bg-taiji-gray-200 rounded w-1/2"></div>
+                </div>
+              ))}
+            </div>
           ) : filteredFiles.length === 0 ? (
             <motion.div
               initial={{ opacity: 0 }}

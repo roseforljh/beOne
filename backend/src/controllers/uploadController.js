@@ -12,7 +12,7 @@ const chunksDir = path.join(uploadsDir, 'chunks');
 const filesDir = path.join(uploadsDir, 'files');
 const thumbsDir = path.join(uploadsDir, 'thumbs');
 
-// 初始化上传
+// 初始化上传（优化：立即响应，减少延迟）
 export const initUpload = (req, res) => {
   const { filename, totalChunks, fileSize, mimetype } = req.body;
   
@@ -22,10 +22,14 @@ export const initUpload = (req, res) => {
 
   const uploadId = `${Date.now()}-${Math.random().toString(36).substr(2, 9)}`;
   
-  res.json({ uploadId });
+  // 立即响应，不做额外处理
+  res.json({
+    uploadId,
+    message: 'Upload initialized'
+  });
 };
 
-// 上传分片
+// 上传分片（优化：异步处理数据库，快速响应）
 export const uploadChunk = (req, res) => {
   const { uploadId, chunkIndex } = req.body;
   const chunk = req.file;
@@ -36,12 +40,16 @@ export const uploadChunk = (req, res) => {
 
   const chunkPath = path.join(chunksDir, `${uploadId}-${chunkIndex}`);
 
+  // 使用异步方式，快速响应客户端
   fs.rename(chunk.path, chunkPath, (err) => {
     if (err) {
       return res.status(500).json({ error: '保存分片失败' });
     }
 
-    // 保存分片信息到数据库
+    // 立即响应客户端，不等待数据库操作
+    res.json({ success: true, chunkIndex });
+
+    // 异步保存分片信息到数据库（不阻塞响应）
     db.run(
       'INSERT INTO chunks (upload_id, chunk_index, chunk_path) VALUES (?, ?, ?)',
       [uploadId, chunkIndex, chunkPath],
@@ -51,8 +59,6 @@ export const uploadChunk = (req, res) => {
         }
       }
     );
-
-    res.json({ success: true, chunkIndex });
   });
 };
 

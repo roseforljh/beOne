@@ -39,18 +39,27 @@ export const connectSocket = (token) => {
 
   socket = io(socketUrl, {
     auth: { token },
-    transports: ['websocket', 'polling'],
+    // 移动端优化：优先使用 WebSocket，减少 polling 延迟
+    transports: Capacitor.isNativePlatform() ? ['websocket'] : ['websocket', 'polling'],
     reconnection: true,
-    reconnectionDelay: 1000,
-    reconnectionDelayMax: 5000,
-    reconnectionAttempts: 10,
-    timeout: 20000,
+    reconnectionDelay: 500, // 减少重连延迟（移动端优化）
+    reconnectionDelayMax: 3000, // 减少最大重连延迟
+    reconnectionAttempts: 5, // 减少重连次数，快速失败
+    timeout: 8000, // 减少超时时间（移动端优化）
     // 性能优化配置
     upgrade: true,
     rememberUpgrade: true,
     perMessageDeflate: {
       threshold: 1024 // 只压缩大于1KB的消息
-    }
+    },
+    // 移动端网络优化
+    forceNew: false,
+    multiplex: true,
+    // 启用二进制传输优化
+    enablesXDR: false,
+    // 心跳配置
+    pingInterval: 25000,
+    pingTimeout: 5000
   });
 
   socket.on('connect', () => {

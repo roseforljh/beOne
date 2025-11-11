@@ -1,5 +1,5 @@
 import { motion } from 'framer-motion';
-import { useState } from 'react';
+import { useState, useRef, useEffect } from 'react';
 import { formatFileSize, getFileIcon } from '../utils/uploadHelper';
 import { api, axiosInstance } from '../utils/api';
 import { Capacitor } from '@capacitor/core';
@@ -14,7 +14,31 @@ export default function FileCard({ file, onUpdate, onDelete, onPreview }) {
   const [showToast, setShowToast] = useState(false);
   const [toastMessage, setToastMessage] = useState('');
   const [toastType, setToastType] = useState('success');
+  const [imageLoaded, setImageLoaded] = useState(false);
+  const [isInView, setIsInView] = useState(false);
+  const cardRef = useRef(null);
   const isImage = file.mimetype?.startsWith('image/');
+
+  // 懒加载：使用 Intersection Observer
+  useEffect(() => {
+    const observer = new IntersectionObserver(
+      (entries) => {
+        entries.forEach((entry) => {
+          if (entry.isIntersecting) {
+            setIsInView(true);
+            observer.disconnect();
+          }
+        });
+      },
+      { rootMargin: '50px' } // 提前 50px 开始加载
+    );
+
+    if (cardRef.current) {
+      observer.observe(cardRef.current);
+    }
+
+    return () => observer.disconnect();
+  }, []);
 
   const showToastMessage = (message, type = 'success') => {
     setToastMessage(message);
@@ -112,6 +136,7 @@ export default function FileCard({ file, onUpdate, onDelete, onPreview }) {
 
   return (
     <motion.div
+      ref={cardRef}
       className="card p-4 group"
       initial={{ opacity: 0, scale: 0.9 }}
       animate={{ opacity: 1, scale: 1 }}
@@ -121,19 +146,29 @@ export default function FileCard({ file, onUpdate, onDelete, onPreview }) {
     >
       {/* 文件预览 */}
       <div className="relative w-full h-48 bg-taiji-gray-100 rounded-lg mb-3 overflow-hidden flex items-center justify-center">
-        {isImage ? (
-          <img
-            src={api.getThumbnailUrl(file.id)}
-            alt={file.original_name}
-            className="w-full h-full object-cover"
-            onError={(e) => {
-              e.target.style.display = 'none';
-              e.target.nextSibling.style.display = 'flex';
-            }}
-          />
+        {isImage && isInView ? (
+          <>
+            {/* 加载占位符 */}
+            {!imageLoaded && (
+              <div className="absolute inset-0 flex items-center justify-center">
+                <div className="w-8 h-8 border-4 border-taiji-gray-300 border-t-taiji-black rounded-full animate-spin"></div>
+              </div>
+            )}
+            <img
+              src={api.getThumbnailUrl(file.id)}
+              alt={file.original_name}
+              className={`w-full h-full object-cover transition-opacity duration-300 ${imageLoaded ? 'opacity-100' : 'opacity-0'}`}
+              loading="lazy"
+              onLoad={() => setImageLoaded(true)}
+              onError={(e) => {
+                e.target.style.display = 'none';
+                e.target.nextSibling.style.display = 'flex';
+              }}
+            />
+          </>
         ) : null}
         
-        <div className={`flex items-center justify-center w-full h-full ${isImage ? 'hidden' : ''}`}>
+        <div className={`flex items-center justify-center w-full h-full ${isImage && isInView && !imageLoaded ? 'hidden' : isImage ? 'hidden' : ''}`}>
           <span className="text-6xl">{getFileIcon(file.mimetype)}</span>
         </div>
 

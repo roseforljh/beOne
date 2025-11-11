@@ -1,5 +1,8 @@
 apply plugin: 'com.android.application'
 
+// 网络性能优化配置
+android.buildFeatures.buildConfig = true
+
 // 加载密钥属性
 def keystorePropertiesFile = rootProject.file("keystore.properties")
 def keystoreProperties = new Properties()

@@ -1,8 +1,16 @@
 import axios from 'axios';
 import { axiosInstance as api } from './api';
+import { Capacitor } from '@capacitor/core';
 
-const CHUNK_SIZE = 2 * 1024 * 1024; // 2MB - 更小的分片以提高并发效率
-const MAX_CONCURRENT_UPLOADS = 3; // 最大并发上传数
+// 移动端优化：根据平台调整分片大小
+const CHUNK_SIZE = Capacitor.isNativePlatform()
+  ? 1 * 1024 * 1024  // 移动端：1MB 分片，减少单次传输大小
+  : 2 * 1024 * 1024; // Web端：2MB 分片
+
+// 不限制并发数，让系统自动处理
+const MAX_CONCURRENT_UPLOADS = Capacitor.isNativePlatform()
+  ? 5  // 移动端：5个并发
+  : 6; // Web端：6个并发
 
 export class FileUploader {
   constructor(file, onProgress, onSpeedUpdate) {
@@ -40,6 +48,11 @@ export class FileUploader {
       this.startTime = Date.now();
       this.lastUpdateTime = this.startTime;
       
+      // 立即显示初始进度（0.1%）
+      if (this.onProgress) {
+        this.onProgress(0.1);
+      }
+      
       // 1. 初始化上传（统一走 axiosInstance，原生端使用后端 IP 而非 http://localhost）
       const initResponse = await api.post('/api/upload/init', {
         filename: this.file.name,
@@ -49,6 +62,11 @@ export class FileUploader {
       });
 
       this.uploadId = initResponse.data.uploadId;
+      
+      // 初始化完成，显示 0.5% 进度
+      if (this.onProgress) {
+        this.onProgress(0.5);
+      }
 
       // 2. 并发上传分片
       await this.uploadChunksConcurrently();
@@ -169,6 +187,8 @@ export class FileUploader {
         headers: {
           'Content-Type': 'multipart/form-data'
         },
+        // 移动端优化：增加超时时间用于上传
+        timeout: Capacitor.isNativePlatform() ? 30000 : 15000,
         cancelToken: cancelTokenSource.token,
         onUploadProgress: (progressEvent) => {
           if (this.aborted) {
@@ -193,14 +213,15 @@ export class FileUploader {
     // 计算总进度
     const completedChunks = this.uploadedChunks.size;
     const currentChunkProgress = chunkLoaded / chunkSize;
-    const totalProgress = ((completedChunks + currentChunkProgress) / this.totalChunks) * 100;
+    // 确保进度至少从 1% 开始（避免长时间显示 0%）
+    const totalProgress = Math.max(1, ((completedChunks + currentChunkProgress) / this.totalChunks) * 100);
 
     // 更新已上传字节数
     this.uploadedBytes = completedChunks * CHUNK_SIZE + chunkLoaded;
 
-    // 计算传输速度（每300ms更新一次）
+    // 计算传输速度（每200ms更新一次，更频繁的反馈）
     const now = Date.now();
-    if (now - this.lastUpdateTime >= 300) {
+    if (now - this.lastUpdateTime >= 200) {
       const timeDiff = (now - this.lastUpdateTime) / 1000;
       const bytesDiff = this.uploadedBytes - this.lastUploadedBytes;
       const speed = bytesDiff / timeDiff;
@@ -214,7 +235,8 @@ export class FileUploader {
     }
 
     if (this.onProgress) {
-      this.onProgress(Math.min(totalProgress, 100));
+      // 确保进度不会倒退，且最少显示 1%
+      this.onProgress(Math.min(Math.max(1, totalProgress), 99));
     }
   }
 }

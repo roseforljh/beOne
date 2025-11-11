@@ -27,10 +27,17 @@ const API_BASE_URL = getBaseUrl();
 // 创建 axios 实例
 const axiosInstance = axios.create({
   baseURL: API_BASE_URL,
-  timeout: 30000, // 30秒超时
+  timeout: 10000, // 10秒超时（移动端优化）
   headers: {
-    'Content-Type': 'application/json'
-  }
+    'Content-Type': 'application/json',
+    'Connection': 'keep-alive'
+  },
+  // 移动端网络优化配置
+  maxRedirects: 3,
+  maxContentLength: 50 * 1024 * 1024, // 50MB
+  maxBodyLength: 50 * 1024 * 1024,
+  // 移动端优化：快速失败
+  validateStatus: (status) => status >= 200 && status < 500
 });
 
 // 动态更新 baseURL 的函数
@@ -40,9 +47,9 @@ export const updateApiBaseUrl = () => {
   return newBaseUrl;
 };
 
-// 请求缓存
+// 请求缓存（移动端优化：更长的缓存时间）
 const requestCache = new Map();
-const CACHE_DURATION = 5000; // 5秒缓存
+const CACHE_DURATION = Capacitor.isNativePlatform() ? 30000 : 5000; // 移动端 30 秒，Web 端 5 秒
 
 // 请求拦截器
 axiosInstance.interceptors.request.use(
@@ -53,7 +60,12 @@ axiosInstance.interceptors.request.use(
       config.headers.Authorization = `Bearer ${token}`;
     }
     
-    // 添加时间戳防止缓存
+    // 移动端优化：添加压缩支持
+    if (Capacitor.isNativePlatform()) {
+      config.headers['Accept-Encoding'] = 'gzip, deflate';
+    }
+    
+    // 添加时间戳防止缓存（仅 GET 请求）
     if (config.method === 'get') {
       config.params = {
         ...config.params,
@@ -68,12 +80,30 @@ axiosInstance.interceptors.request.use(
   }
 );
 
-// 响应拦截器
+// 响应拦截器（添加重试机制）
 axiosInstance.interceptors.response.use(
   (response) => {
     return response;
   },
-  (error) => {
+  async (error) => {
+    const config = error.config;
+    
+    // 网络错误重试机制（移动端优化）
+    if (Capacitor.isNativePlatform() && !config._retry &&
+        (error.code === 'ECONNABORTED' || error.code === 'ERR_NETWORK' || !error.response)) {
+      config._retry = true;
+      config._retryCount = config._retryCount || 0;
+      
+      if (config._retryCount < 2) { // 最多重试2次
+        config._retryCount += 1;
+        console.log(`请求重试 ${config._retryCount}/2:`, config.url);
+        
+        // 指数退避：第一次等待500ms，第二次等待1000ms
+        await new Promise(resolve => setTimeout(resolve, 500 * config._retryCount));
+        return axiosInstance(config);
+      }
+    }
+    
     // 统一错误处理
     if (error.response?.status === 401) {
       // Token 过期，清除并跳转登录
@@ -81,6 +111,7 @@ axiosInstance.interceptors.response.use(
       localStorage.removeItem('user');
       window.location.href = '/login';
     }
+    
     return Promise.reject(error);
   }
 );
