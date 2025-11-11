@@ -85,7 +85,7 @@ export default function Chat() {
   const loadConversations = useCallback(async (selectFirst = false) => {
     try {
       const response = await axiosInstance.get('/api/conversations');
-      const fetchedConversations = response.data.conversations;
+      const fetchedConversations = response.data?.conversations || [];
       setConversations(fetchedConversations);
 
       if (selectFirst && fetchedConversations.length > 0) {
@@ -95,6 +95,9 @@ export default function Chat() {
       }
     } catch (error) {
       console.error('加载会话列表失败:', error);
+      // 出错时设置为空数组，避免后续错误
+      setConversations([]);
+      setCurrentConversationId(null);
     }
   }, []);
 
@@ -118,7 +121,7 @@ export default function Chat() {
   const initializeApp = useCallback(async () => {
     try {
       const response = await axiosInstance.get('/api/conversations');
-      const fetchedConversations = response.data.conversations;
+      const fetchedConversations = response.data?.conversations || [];
       setConversations(fetchedConversations);
       if (fetchedConversations.length > 0) {
         setCurrentConversationId(fetchedConversations[0].id);
@@ -129,6 +132,9 @@ export default function Chat() {
       }
     } catch (error) {
       console.error("初始化应用失败:", error);
+      // 出错时设置为空数组，避免后续错误
+      setConversations([]);
+      setCurrentConversationId(null);
       setLoading(false); // 错误时也要设置为 false
     }
   }, []);
@@ -310,6 +316,9 @@ export default function Chat() {
 
   // 使用 useMemo 优化标题计算
   const currentConversationTitle = useMemo(() => {
+    if (!conversations || !Array.isArray(conversations)) {
+      return '加载中...';
+    }
     return conversations.find(c => c.id === currentConversationId)?.title || '加载中...';
   }, [conversations, currentConversationId]);
 

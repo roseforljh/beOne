@@ -63,9 +63,11 @@ export default function Home() {
     setLoading(true);
     try {
       const data = await api.getFiles(useCache);
-      setFiles(data);
+      setFiles(data || []);
     } catch (error) {
       console.error('加载文件失败:', error);
+      // 出错时设置为空数组，避免后续错误
+      setFiles([]);
     }
     setLoading(false);
   };
@@ -82,7 +84,7 @@ export default function Home() {
     setFiles(files.filter(f => f.id !== fileId));
   };
 
-  const filteredFiles = files.filter(file => {
+  const filteredFiles = (files || []).filter(file => {
     if (filter === 'public') return file.is_public === 1;
     if (filter === 'private') return file.is_public === 0;
     return true;
