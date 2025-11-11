@@ -26,9 +26,12 @@ export default function Public() {
     setLoading(true);
     try {
       const data = await api.getPublicFiles();
-      setFiles(data);
+      // 确保 data 是数组,防止 undefined 导致白屏
+      setFiles(Array.isArray(data) ? data : []);
     } catch (error) {
       console.error('加载公开文件失败:', error);
+      // 发生错误时设置为空数组
+      setFiles([]);
     }
     setLoading(false);
   };
@@ -113,7 +116,7 @@ export default function Public() {
             }}
           >
             <div className="flex items-center justify-between">
-              <Link to="/" className="flex items-center gap-2">
+              <Link to="/public" className="flex items-center gap-2">
                 <TaijiLogo size={36} animate={false} />
                 <div>
                   <h1 className="text-base md:text-lg font-bold text-taiji-black">太极</h1>

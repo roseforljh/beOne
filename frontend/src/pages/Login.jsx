@@ -47,7 +47,7 @@ export default function Login() {
     const result = await login(username, password);
 
     if (result.success) {
-      navigate('/');
+      navigate('/files');
     } else {
       setError(result.error);
     }
@@ -62,7 +62,7 @@ export default function Login() {
     const result = await guestLogin();
 
     if (result.success) {
-      navigate('/');
+      navigate('/public');
     } else {
       setError(result.error);
     }

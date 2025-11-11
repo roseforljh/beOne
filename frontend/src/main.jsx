@@ -26,6 +26,17 @@ import './index.css'
   }
 })();
 
+// 全局错误处理 - 防止未捕获的错误导致白屏
+window.addEventListener('error', (event) => {
+  console.error('Global error:', event.error);
+  // 不阻止默认行为,让 ErrorBoundary 处理
+});
+
+window.addEventListener('unhandledrejection', (event) => {
+  console.error('Unhandled promise rejection:', event.reason);
+  // 不阻止默认行为
+});
+
 ReactDOM.createRoot(document.getElementById('root')).render(
   <React.StrictMode>
     <App />

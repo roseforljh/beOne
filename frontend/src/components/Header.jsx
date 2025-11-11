@@ -38,9 +38,9 @@ export default function Header() {
               {/* 桌面端导航 */}
               <nav className="hidden md:flex items-center gap-4 lg:gap-6">
                 <Link
-                  to="/"
+                  to="/public"
                   className={`text-sm font-medium transition-colors ${
-                    location.pathname === '/'
+                    location.pathname === '/public'
                       ? 'text-taiji-black'
                       : 'text-taiji-gray-500 hover:text-taiji-black'
                   }`}
@@ -137,10 +137,10 @@ export default function Header() {
             >
               <div className="py-3 space-y-2">
                 <Link
-                  to="/"
+                  to="/public"
                   onClick={() => setMobileMenuOpen(false)}
                   className={`block px-4 py-3 rounded-lg font-medium transition-colors ${
-                    location.pathname === '/'
+                    location.pathname === '/public'
                       ? 'bg-taiji-black text-taiji-white'
                       : 'text-taiji-gray-700 hover:bg-taiji-gray-100'
                   }`}
