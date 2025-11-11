@@ -27,7 +27,7 @@ export default defineConfig({
   },
   build: {
     // 设置输出目录
-    outDir: '../beone-mobile/www',
+    outDir: 'dist',
     emptyOutDir: true, // 构建时清空目标目录
     // 生产环境优化
     target: 'esnext',
