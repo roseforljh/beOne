@@ -7,6 +7,8 @@ import ChatInput from '../components/ChatInput';
 import LoadingSpinner from '../components/LoadingSpinner';
 import TaijiLogo from '../components/TaijiLogo';
 import ConversationSidebar from '../components/ConversationSidebar';
+import ConfirmDialog from '../components/ConfirmDialog';
+import Toast from '../components/Toast';
 import { useAuth } from '../contexts/AuthContext';
 import { connectSocket, disconnectSocket } from '../utils/socket';
 import { Keyboard } from '@capacitor/keyboard';
@@ -22,6 +24,10 @@ export default function Chat() {
   const [conversations, setConversations] = useState([]);
   const [currentConversationId, setCurrentConversationId] = useState(null);
   const [isSidebarOpen, setIsSidebarOpen] = useState(false);
+  const [showClearConfirm, setShowClearConfirm] = useState(false);
+  const [showToast, setShowToast] = useState(false);
+  const [toastMessage, setToastMessage] = useState('');
+  const [toastType, setToastType] = useState('success');
   const messagesEndRef = useRef(null);
   const typingTimeouts = useRef(new Map());
   const initialized = useRef(false);
@@ -55,6 +61,12 @@ export default function Chat() {
     });
   }, [messages, scrollToBottom]);
 
+  const showToastMessage = useCallback((message, type = 'success') => {
+    setToastMessage(message);
+    setToastType(type);
+    setShowToast(true);
+  }, []);
+
   const createNewConversation = useCallback(async () => {
     try {
       const now = new Date();
@@ -65,10 +77,10 @@ export default function Chat() {
       return response.data.conversation;
     } catch (error) {
       console.error('创建新会话失败:', error);
-      alert('无法创建新会话，请检查网络并重试。');
+      showToastMessage('无法创建新会话，请检查网络并重试', 'error');
       return null;
     }
-  }, []);
+  }, [showToastMessage]);
 
   const loadConversations = useCallback(async (selectFirst = false) => {
     try {
@@ -217,12 +229,20 @@ export default function Chat() {
 
     const onConnect = () => handleConnect(socket);
     
+    const handleMessagesCleared = (data) => {
+      // 如果清空的是当前会话，则清空消息列表
+      if (data.conversationId === currentConversationId && data.userId === user.id) {
+        setMessages([]);
+      }
+    };
+    
     socket.on('connect', onConnect);
     socket.on('new_message', handleNewMessage);
     socket.on('online_users', handleOnlineUsers);
     socket.on('message_recalled', handleMessageRecalled);
     socket.on('conversation_updated', handleConversationUpdated);
     socket.on('conversations_updated', handleConversationsUpdated);
+    socket.on('messages_cleared', handleMessagesCleared);
     
     // ... (typing logic remains the same)
 
@@ -233,26 +253,29 @@ export default function Chat() {
       socket.off('message_recalled', handleMessageRecalled);
       socket.off('conversation_updated', handleConversationUpdated);
       socket.off('conversations_updated', handleConversationsUpdated);
+      socket.off('messages_cleared', handleMessagesCleared);
       disconnectSocket();
     };
-  }, [token, handleConnect, handleNewMessage, handleOnlineUsers, handleMessageRecalled, handleConversationUpdated, handleConversationsUpdated]);
+  }, [token, user, currentConversationId, handleConnect, handleNewMessage, handleOnlineUsers, handleMessageRecalled, handleConversationUpdated, handleConversationsUpdated]);
 
   const handleMessageRecall = (messageId) => {
     setMessages((prev) => prev.filter(msg => msg.id !== messageId));
   };
 
-  const handleClearMessages = async () => {
+  const handleClearMessages = () => {
     if (!currentConversationId) return;
-    if (!window.confirm('确定要清空当前会话的聊天记录吗？此操作不可恢复！')) return;
+    setShowClearConfirm(true);
+  };
 
+  const confirmClearMessages = async () => {
     try {
       await axiosInstance.delete(`/api/messages?conversation_id=${currentConversationId}`);
       setMessages([]);
       loadConversations();
-      alert('聊天记录已清空');
+      showToastMessage('聊天记录已清空', 'success');
     } catch (error) {
       console.error('清空失败:', error);
-      alert('清空失败，请重试');
+      showToastMessage('清空失败，请重试', 'error');
     }
   };
 
@@ -446,6 +469,26 @@ export default function Chat() {
           )}
         </div>
       </div>
+
+      {/* 确认对话框 */}
+      <ConfirmDialog
+        isOpen={showClearConfirm}
+        onClose={() => setShowClearConfirm(false)}
+        onConfirm={confirmClearMessages}
+        title="清空聊天记录"
+        message="确定要清空当前会话的所有聊天记录吗？此操作不可恢复！"
+        confirmText="清空"
+        cancelText="取消"
+        type="danger"
+      />
+
+      {/* Toast 提示 */}
+      <Toast
+        isOpen={showToast}
+        onClose={() => setShowToast(false)}
+        message={toastMessage}
+        type={toastType}
+      />
     </div>
   );
 }

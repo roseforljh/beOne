@@ -4,11 +4,23 @@ import { formatFileSize, getFileIcon } from '../utils/uploadHelper';
 import { api, axiosInstance } from '../utils/api';
 import { Capacitor } from '@capacitor/core';
 import { Filesystem, Directory } from '@capacitor/filesystem';
-import { Toast } from '@capacitor/toast';
+import { Toast as CapacitorToast } from '@capacitor/toast';
+import ConfirmDialog from './ConfirmDialog';
+import Toast from './Toast';
 
 export default function FileCard({ file, onUpdate, onDelete, onPreview }) {
   const [isDeleting, setIsDeleting] = useState(false);
+  const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
+  const [showToast, setShowToast] = useState(false);
+  const [toastMessage, setToastMessage] = useState('');
+  const [toastType, setToastType] = useState('success');
   const isImage = file.mimetype?.startsWith('image/');
+
+  const showToastMessage = (message, type = 'success') => {
+    setToastMessage(message);
+    setToastType(type);
+    setShowToast(true);
+  };
 
   const handleToggleVisibility = async () => {
     try {
@@ -16,24 +28,26 @@ export default function FileCard({ file, onUpdate, onDelete, onPreview }) {
       if (onUpdate) {
         onUpdate({ ...file, is_public: result.is_public });
       }
+      showToastMessage(result.is_public ? '已设为公开' : '已设为私有', 'success');
     } catch (error) {
-      alert('切换失败');
+      showToastMessage('切换失败', 'error');
     }
   };
 
-  const handleDelete = async () => {
-    if (!confirm(`确定要删除 "${file.original_name}" 吗？`)) {
-      return;
-    }
+  const handleDelete = () => {
+    setShowDeleteConfirm(true);
+  };
 
+  const confirmDelete = async () => {
     setIsDeleting(true);
     try {
       await api.deleteFile(file.id);
       if (onDelete) {
         onDelete(file.id);
       }
+      showToastMessage('文件已删除', 'success');
     } catch (error) {
-      alert('删除失败');
+      showToastMessage('删除失败', 'error');
       setIsDeleting(false);
     }
   };
@@ -44,14 +58,14 @@ export default function FileCard({ file, onUpdate, onDelete, onPreview }) {
         // 请求存储权限
         const permissions = await Filesystem.requestPermissions();
         if (permissions.publicStorage !== 'granted') {
-          await Toast.show({
+          await CapacitorToast.show({
             text: '需要存储权限才能下载文件',
             duration: 'long',
           });
           return;
         }
 
-        await Toast.show({
+        await CapacitorToast.show({
           text: `开始下载 ${file.original_name}...`,
           duration: 'short',
         });
@@ -71,13 +85,13 @@ export default function FileCard({ file, onUpdate, onDelete, onPreview }) {
               directory: Directory.Documents,
             });
 
-            await Toast.show({
+            await CapacitorToast.show({
               text: `${file.original_name} 已保存成功`,
               duration: 'long',
             });
           } catch (e) {
             console.error('文件保存失败', e);
-            await Toast.show({
+            await CapacitorToast.show({
               text: `文件保存失败: ${e.message}`,
               duration: 'long',
             });
@@ -86,7 +100,7 @@ export default function FileCard({ file, onUpdate, onDelete, onPreview }) {
         reader.readAsDataURL(blob);
       } catch (error) {
         console.error('下载失败:', error);
-        await Toast.show({
+        await CapacitorToast.show({
           text: `下载失败: ${error.message}`,
           duration: 'long',
         });
@@ -176,6 +190,26 @@ export default function FileCard({ file, onUpdate, onDelete, onPreview }) {
           </button>
         </div>
       </div>
+
+      {/* 删除确认对话框 */}
+      <ConfirmDialog
+        isOpen={showDeleteConfirm}
+        onClose={() => setShowDeleteConfirm(false)}
+        onConfirm={confirmDelete}
+        title="删除文件"
+        message={`确定要删除 "${file.original_name}" 吗？此操作不可恢复！`}
+        confirmText="删除"
+        cancelText="取消"
+        type="danger"
+      />
+
+      {/* Toast 提示 */}
+      <Toast
+        isOpen={showToast}
+        onClose={() => setShowToast(false)}
+        message={toastMessage}
+        type={toastType}
+      />
     </motion.div>
   );
 }

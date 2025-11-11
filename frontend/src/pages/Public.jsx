@@ -6,8 +6,11 @@ import TaijiLogo from '../components/TaijiLogo';
 import Header from '../components/Header';
 import LoadingSpinner from '../components/LoadingSpinner';
 import FilePreview from '../components/FilePreview';
-import { api } from '../utils/api';
+import { api, axiosInstance } from '../utils/api';
 import { formatFileSize, getFileIcon } from '../utils/uploadHelper';
+import { Capacitor } from '@capacitor/core';
+import { Filesystem, Directory } from '@capacitor/filesystem';
+import { Toast as CapacitorToast } from '@capacitor/toast';
 
 export default function Public() {
   const { user } = useAuth();
@@ -30,8 +33,62 @@ export default function Public() {
     setLoading(false);
   };
 
-  const handleDownload = (fileId) => {
-    window.open(api.getDownloadUrl(fileId), '_blank');
+  const handleDownload = async (file) => {
+    if (Capacitor.isNativePlatform()) {
+      try {
+        // 请求存储权限
+        const permissions = await Filesystem.requestPermissions();
+        if (permissions.publicStorage !== 'granted') {
+          await CapacitorToast.show({
+            text: '需要存储权限才能下载文件',
+            duration: 'long',
+          });
+          return;
+        }
+
+        await CapacitorToast.show({
+          text: `开始下载 ${file.original_name}...`,
+          duration: 'short',
+        });
+
+        const response = await axiosInstance.get(`/api/files/${file.id}/download`, {
+          responseType: 'blob',
+        });
+        const blob = response.data;
+
+        const reader = new FileReader();
+        reader.onloadend = async () => {
+          const base64data = reader.result;
+          try {
+            await Filesystem.writeFile({
+              path: file.original_name,
+              data: base64data,
+              directory: Directory.Documents,
+            });
+
+            await CapacitorToast.show({
+              text: `${file.original_name} 已保存成功`,
+              duration: 'long',
+            });
+          } catch (e) {
+            console.error('文件保存失败', e);
+            await CapacitorToast.show({
+              text: `文件保存失败: ${e.message}`,
+              duration: 'long',
+            });
+          }
+        };
+        reader.readAsDataURL(blob);
+      } catch (error) {
+        console.error('下载失败:', error);
+        await CapacitorToast.show({
+          text: `下载失败: ${error.message}`,
+          duration: 'long',
+        });
+      }
+    } else {
+      window.open(api.getDownloadUrl(file.id), '_blank');
+    }
   };
 
   const handlePreview = (file) => {
@@ -142,7 +199,7 @@ export default function Public() {
                         预览
                       </button>
                       <button
-                        onClick={() => handleDownload(file.id)}
+                        onClick={() => handleDownload(file)}
                         className="flex-1 px-4 py-2 bg-taiji-black text-taiji-white rounded-lg text-sm font-medium hover:bg-taiji-gray-800 transition-colors"
                       >
                         下载

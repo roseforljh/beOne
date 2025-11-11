@@ -113,6 +113,15 @@ router.delete('/', authenticateToken, (req, res) => {
       return res.status(500).json({ error: '清空失败' });
     }
 
+    // 通过 WebSocket 通知该用户的所有会话（手机和电脑）消息已清空
+    const io = req.app.get('io');
+    if (io) {
+      io.to(`user_${userId}`).emit('messages_cleared', {
+        userId: userId,
+        conversationId: conversationId
+      });
+    }
+
     res.json({ success: true });
   });
 });
