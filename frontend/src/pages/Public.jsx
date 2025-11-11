@@ -101,8 +101,17 @@ export default function Public() {
       {user ? (
         <Header />
       ) : (
-        <header className="bg-taiji-white border-b-2 border-taiji-gray-200 sticky top-0 z-40">
-          <div className="max-w-7xl mx-auto px-4 py-3">
+        <header
+          className="bg-taiji-white border-b-2 border-taiji-gray-200 sticky top-0 z-40"
+          style={{ paddingTop: 'env(safe-area-inset-top)' }}
+        >
+          <div
+            className="max-w-7xl mx-auto px-4 py-3"
+            style={{
+              paddingLeft: 'calc(1rem + env(safe-area-inset-left))',
+              paddingRight: 'calc(1rem + env(safe-area-inset-right))',
+            }}
+          >
             <div className="flex items-center justify-between">
               <Link to="/" className="flex items-center gap-2">
                 <TaijiLogo size={36} animate={false} />

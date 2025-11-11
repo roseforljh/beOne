@@ -14,7 +14,13 @@ export default function Header() {
       className="fixed top-0 left-0 right-0 z-50 border-b border-taiji-gray-200 bg-white/90 backdrop-blur supports-[backdrop-filter]:bg-white/70"
       style={{ paddingTop: 'env(safe-area-inset-top)' }}
     >
-      <div className="max-w-7xl mx-auto px-3 md:px-4 py-1.5 md:py-3">
+      <div
+        className="max-w-7xl mx-auto px-3 md:px-4 py-1.5 md:py-3"
+        style={{
+          paddingLeft: 'calc(0.75rem + env(safe-area-inset-left))',
+          paddingRight: 'calc(0.75rem + env(safe-area-inset-right))',
+        }}
+      >
         <div className="flex items-center justify-between">
           {/* Logo */}
           <Link to="/" className="flex items-center gap-2 hover:opacity-80 transition-opacity">
@@ -22,12 +28,12 @@ export default function Header() {
             <div className="leading-tight">
               <h1 className="text-sm md:text-lg font-bold text-taiji-black">太极</h1>
               <p className="hidden sm:block text-xs text-taiji-gray-500">
-                {user?.is_guest ? '👤 游客模式' : '文件传输'}
+                {user?.is_guest ? '👤 游客模式' : user ? '文件传输' : '欢迎使用'}
               </p>
             </div>
           </Link>
 
-          {user && (
+          {user ? (
             <>
               {/* 桌面端导航 */}
               <nav className="hidden md:flex items-center gap-4 lg:gap-6">
@@ -95,6 +101,27 @@ export default function Header() {
                   )}
                 </svg>
               </button>
+            </>
+          ) : (
+            <>
+              {/* 桌面端登录按钮 */}
+              <Link
+                to="/login"
+                className="hidden md:block text-xs lg:text-sm px-3 lg:px-4 py-2 bg-taiji-black text-taiji-white rounded-lg hover:bg-taiji-gray-800 transition-colors"
+              >
+                登录
+              </Link>
+              
+              {/* 移动端登录按钮 - 保持与菜单按钮相同的尺寸 */}
+              <Link
+                to="/login"
+                className="md:hidden p-2 text-taiji-black"
+                aria-label="登录"
+              >
+                <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M11 16l-4-4m0 0l4-4m-4 4h14m-5 4v1a3 3 0 01-3 3H6a3 3 0 01-3-3V7a3 3 0 013-3h7a3 3 0 013 3v1" />
+                </svg>
+              </Link>
             </>
           )}
         </div>
