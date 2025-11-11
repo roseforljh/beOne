@@ -1,6 +1,7 @@
 import express from 'express';
 import bcrypt from 'bcrypt';
 import crypto from 'crypto';
+import jwt from 'jsonwebtoken';
 import { db } from '../config/database.js';
 import { generateToken } from '../middleware/auth.js';
 
@@ -29,7 +30,17 @@ router.post('/guest-login', async (req, res) => {
           is_guest: 1
         };
         
-        const token = generateToken(user);
+        // 确保使用与认证中间件相同的JWT_SECRET
+        const JWT_SECRET = 'taiji_secret_key_change_in_production';
+        const token = jwt.sign(
+          {
+            id: user.id,
+            username: user.username,
+            is_guest: user.is_guest === 1 || user.is_guest === true
+          },
+          JWT_SECRET,
+          { expiresIn: '30d' }
+        );
         
         res.json({
           token,
@@ -71,7 +82,17 @@ router.post('/login', (req, res) => {
         return res.status(401).json({ error: '用户名或密码错误' });
       }
 
-      const token = generateToken(user);
+      // 确保使用与认证中间件相同的JWT_SECRET
+      const JWT_SECRET = 'taiji_secret_key_change_in_production';
+      const token = jwt.sign(
+        {
+          id: user.id,
+          username: user.username,
+          is_guest: user.is_guest === 1
+        },
+        JWT_SECRET,
+        { expiresIn: '30d' }
+      );
 
       res.json({
         token,
