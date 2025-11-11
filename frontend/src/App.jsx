@@ -1,6 +1,7 @@
 import { BrowserRouter, Routes, Route, Navigate } from 'react-router-dom';
-import { lazy, Suspense } from 'react';
+import { lazy, Suspense, useEffect } from 'react';
 import { Capacitor } from '@capacitor/core';
+import { StatusBar, Style } from '@capacitor/status-bar';
 import { AuthProvider, useAuth } from './contexts/AuthContext';
 import LoadingSpinner from './components/LoadingSpinner';
 import ErrorBoundary from './components/ErrorBoundary';
@@ -59,6 +60,16 @@ function LoginRoute({ children }) {
 }
 
 function App() {
+  // 设置状态栏样式
+  useEffect(() => {
+    if (Capacitor.isNativePlatform()) {
+      // 设置状态栏为深色内容(黑色文字),适配浅色背景
+      StatusBar.setStyle({ style: Style.Light });
+      // 设置状态栏背景色为白色
+      StatusBar.setBackgroundColor({ color: '#FFFFFF' });
+    }
+  }, []);
+
   return (
     <ErrorBoundary>
       <BrowserRouter>

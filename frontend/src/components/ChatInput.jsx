@@ -96,10 +96,15 @@ const ChatInput = memo(function ChatInput({ conversationId, onFileSent }) {
       const uploader = new Uploader(
         file,
         (prog) => {
-          setUploadProgress(prev => ({
-            ...prev,
-            [index]: prog
-          }));
+          console.log(`文件 ${index} 进度:`, prog);
+          setUploadProgress(prev => {
+            const newProgress = {
+              ...prev,
+              [index]: prog
+            };
+            console.log('更新进度状态:', newProgress);
+            return newProgress;
+          });
         },
         (speed) => {
           setUploadSpeed(prev => ({
@@ -168,9 +173,11 @@ const ChatInput = memo(function ChatInput({ conversationId, onFileSent }) {
             </button>
           </div>
           {uploadingFiles.map((file, index) => {
-            const progress = uploadProgress[index] || 0;
-            const speed = uploadSpeed[index] || 0;
-            const displayProgress = Math.min(Math.round(progress), 100);
+            const progress = uploadProgress[index] ?? 0;
+            const speed = uploadSpeed[index] ?? 0;
+            const displayProgress = Math.min(Math.max(0, Math.round(progress)), 100);
+            
+            console.log(`渲染文件 ${index}:`, { progress, displayProgress });
             
             const isCancelled = cancelledIndexes.has(index);
             

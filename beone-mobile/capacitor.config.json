@@ -3,7 +3,14 @@
   "appName": "beOne Mobile",
   "webDir": "www",
   "server": {
-    "androidScheme": "http"
+    "androidScheme": "http",
+    "cleartext": true,
+    "allowNavigation": ["*"]
+  },
+  "android": {
+    "allowMixedContent": true,
+    "captureInput": true,
+    "webContentsDebuggingEnabled": true
   },
   "plugins": {
     "SplashScreen": {

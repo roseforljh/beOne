@@ -50,10 +50,21 @@ export default defineConfig({
           // 其他库
           'utils-vendor': ['axios', 'framer-motion']
         },
-        // 优化 chunk 文件名
-        chunkFileNames: 'assets/js/[name]-[hash].js',
-        entryFileNames: 'assets/js/[name]-[hash].js',
-        assetFileNames: 'assets/[ext]/[name]-[hash].[ext]'
+        // 优化 chunk 文件名 - 使用内容哈希以支持长期缓存
+        chunkFileNames: 'assets/js/[name]-[hash:8].js',
+        entryFileNames: 'assets/js/[name]-[hash:8].js',
+        assetFileNames: (assetInfo) => {
+          // 图片和字体使用更长的哈希,支持长期缓存
+          const info = assetInfo.name.split('.');
+          const ext = info[info.length - 1];
+          if (/png|jpe?g|svg|gif|tiff|bmp|ico|webp/i.test(ext)) {
+            return `assets/images/[name]-[hash:8].[ext]`;
+          }
+          if (/woff2?|ttf|otf|eot/i.test(ext)) {
+            return `assets/fonts/[name]-[hash:8].[ext]`;
+          }
+          return `assets/[ext]/[name]-[hash:8].[ext]`;
+        }
       }
     },
     // 启用 CSS 代码分割
@@ -65,7 +76,9 @@ export default defineConfig({
     // 优化依赖预构建
     commonjsOptions: {
       transformMixedEsModules: true
-    }
+    },
+    // 启用资源内联阈值
+    assetsInlineLimit: 4096 // 小于 4KB 的资源内联为 base64
   },
   // 优化依赖预构建
   optimizeDeps: {

@@ -48,11 +48,6 @@ export class FileUploader {
       this.startTime = Date.now();
       this.lastUpdateTime = this.startTime;
       
-      // 立即显示初始进度（0.1%）
-      if (this.onProgress) {
-        this.onProgress(0.1);
-      }
-      
       // 1. 初始化上传（统一走 axiosInstance，原生端使用后端 IP 而非 http://localhost）
       const initResponse = await api.post('/api/upload/init', {
         filename: this.file.name,
@@ -62,11 +57,6 @@ export class FileUploader {
       });
 
       this.uploadId = initResponse.data.uploadId;
-      
-      // 初始化完成，显示 0.5% 进度
-      if (this.onProgress) {
-        this.onProgress(0.5);
-      }
 
       // 2. 并发上传分片
       await this.uploadChunksConcurrently();
@@ -82,6 +72,11 @@ export class FileUploader {
         totalChunks: this.totalChunks,
         mimetype: this.file.type
       });
+
+      // 上传完成，设置为 100%
+      if (this.onProgress) {
+        this.onProgress(100);
+      }
 
       return {
         success: true,
@@ -213,15 +208,14 @@ export class FileUploader {
     // 计算总进度
     const completedChunks = this.uploadedChunks.size;
     const currentChunkProgress = chunkLoaded / chunkSize;
-    // 确保进度至少从 1% 开始（避免长时间显示 0%）
-    const totalProgress = Math.max(1, ((completedChunks + currentChunkProgress) / this.totalChunks) * 100);
+    const totalProgress = ((completedChunks + currentChunkProgress) / this.totalChunks) * 100;
 
     // 更新已上传字节数
     this.uploadedBytes = completedChunks * CHUNK_SIZE + chunkLoaded;
 
-    // 计算传输速度（每200ms更新一次，更频繁的反馈）
+    // 计算传输速度（每100ms更新一次，更频繁的反馈）
     const now = Date.now();
-    if (now - this.lastUpdateTime >= 200) {
+    if (now - this.lastUpdateTime >= 100) {
       const timeDiff = (now - this.lastUpdateTime) / 1000;
       const bytesDiff = this.uploadedBytes - this.lastUploadedBytes;
       const speed = bytesDiff / timeDiff;
@@ -235,8 +229,8 @@ export class FileUploader {
     }
 
     if (this.onProgress) {
-      // 确保进度不会倒退，且最少显示 1%
-      this.onProgress(Math.min(Math.max(1, totalProgress), 99));
+      // 确保进度在 0-99 之间
+      this.onProgress(Math.min(Math.max(0, totalProgress), 99));
     }
   }
 }
