@@ -89,7 +89,7 @@ export default function Chat() {
       setConversations(fetchedConversations);
 
       if (selectFirst && fetchedConversations.length > 0) {
-        setCurrentConversationId(fetchedConversations[0].id);
+        setCurrentConversationId(fetchedConversations.id);
       } else if (fetchedConversations.length === 0) {
         setCurrentConversationId(null); // 没有会话了，清空当前会话ID
       }
@@ -121,7 +121,7 @@ export default function Chat() {
       const fetchedConversations = response.data.conversations;
       setConversations(fetchedConversations);
       if (fetchedConversations.length > 0) {
-        setCurrentConversationId(fetchedConversations[0].id);
+        setCurrentConversationId(fetchedConversations.id);
         // loadMessages 会处理 loading 状态
       } else {
         setCurrentConversationId(null);
@@ -206,35 +206,42 @@ export default function Chat() {
     if (data.type === 'created') {
       setConversations(prev => [data.conversation, ...prev]);
     } else if (data.type === 'updated') {
+      // 通用更新逻辑，合并 data 中的所有字段
       setConversations(prev =>
-        prev.map(c => c.id === data.conversationId ? { ...c, title: data.title } : c)
+        prev.map(c => (c.id === data.conversationId ? { ...c, ...data } : c))
       );
     } else if (data.type === 'deleted') {
-      setConversations(prev => prev.filter(c => c.id !== data.conversationId));
-      // 如果删除的是当前会话，则切换到第一个
+      // 如果删除的是当前活动会话
       if (currentConversationId === data.conversationId) {
-        const remainingConversations = conversations.filter(c => c.id !== data.conversationId);
-        if(remainingConversations.length > 0) {
-          setCurrentConversationId(remainingConversations[0].id);
-        } else {
-          setCurrentConversationId(null);
-        }
+        setConversations(prev => {
+          const remaining = prev.filter(c => c.id !== data.conversationId);
+          const nextId = remaining.length > 0 ? remaining.id : null;
+          setCurrentConversationId(nextId);
+          return remaining;
+        });
+      } else {
+        // 如果删除的不是当前活动会话，直接过滤
+        setConversations(prev => prev.filter(c => c.id !== data.conversationId));
       }
     }
-  }, [currentConversationId, conversations]);
+  }, [currentConversationId]); // 移除 conversations 依赖
+
+  const handleMessagesCleared = useCallback((data) => {
+    console.log('收到清空消息事件:', data);
+    console.log('当前会话ID:', currentConversationId);
+    console.log('当前用户ID:', user?.id);
+    // 如果清空的是当前会话，则清空消息列表
+    if (data.conversationId === currentConversationId && data.userId === user?.id) {
+      console.log('清空消息列表');
+      setMessages([]);
+    }
+  }, [currentConversationId, user]);
 
   // Socket连接效果
   useEffect(() => {
     const socket = connectSocket(token);
 
     const onConnect = () => handleConnect(socket);
-    
-    const handleMessagesCleared = (data) => {
-      // 如果清空的是当前会话，则清空消息列表
-      if (data.conversationId === currentConversationId && data.userId === user.id) {
-        setMessages([]);
-      }
-    };
     
     socket.on('connect', onConnect);
     socket.on('new_message', handleNewMessage);
@@ -256,7 +263,7 @@ export default function Chat() {
       socket.off('messages_cleared', handleMessagesCleared);
       disconnectSocket();
     };
-  }, [token, user, currentConversationId, handleConnect, handleNewMessage, handleOnlineUsers, handleMessageRecalled, handleConversationUpdated, handleConversationsUpdated]);
+  }, [token, handleConnect, handleNewMessage, handleOnlineUsers, handleMessageRecalled, handleConversationUpdated, handleConversationsUpdated, handleMessagesCleared]);
 
   const handleMessageRecall = (messageId) => {
     setMessages((prev) => prev.filter(msg => msg.id !== messageId));

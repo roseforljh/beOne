@@ -124,9 +124,12 @@ router.delete('/', authenticateToken, (req, res) => {
         });
         
         // 通知该用户的所有会话更新会话列表（更新消息数量）
-        io.to(`user_${userId}`).emit('conversation_updated', {
+        io.to(`user_${userId}`).emit('conversations_updated', {
+          type: 'updated',
           conversationId: conversationId,
-          updatedAt: new Date().toISOString()
+          // 消息清空后，消息数为 0
+          message_count: 0,
+          updated_at: new Date().toISOString()
         });
       }
 
