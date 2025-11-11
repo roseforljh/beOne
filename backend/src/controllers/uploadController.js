@@ -187,23 +187,51 @@ export const completeUpload = async (req, res) => {
 
 // 直接上传（小文件，不分片）
 export const directUpload = async (req, res) => {
-  const userId = req.user.id;
-  const file = req.file;
-  const { filename, mimetype, source } = req.body;
-
-  if (!file) {
-    return res.status(400).json({ error: '没有上传文件' });
-  }
+  console.log('[直接上传] 开始处理请求');
   
-  // source: 'user' = 我的文件页面上传, 'chat' = 会话中上传
-  const fileSource = source || 'user';
-
   try {
+    const userId = req.user.id;
+    const file = req.file;
+    const { filename, mimetype, source } = req.body;
+
+    console.log('[直接上传] 请求详情:', {
+      userId,
+      hasFile: !!file,
+      filename,
+      mimetype,
+      source,
+      fileDetails: file ? {
+        originalname: file.originalname,
+        filename: file.filename,
+        size: file.size,
+        mimetype: file.mimetype,
+        path: file.path
+      } : null
+    });
+
+    if (!file) {
+      console.log('[直接上传] 错误: 没有上传文件');
+      return res.status(400).json({ error: '没有上传文件' });
+    }
+    
+    // source: 'user' = 我的文件页面上传, 'chat' = 会话中上传
+    const fileSource = source || 'user';
+
     const finalPath = file.path;
     const uniqueFilename = file.filename;
     const fileSize = file.size;
     const originalName = filename || file.originalname;
     const fileMimetype = mimetype || file.mimetype || 'application/octet-stream';
+
+    console.log('[直接上传] 准备保存到数据库:', {
+      uniqueFilename,
+      originalName,
+      fileMimetype,
+      fileSize,
+      finalPath,
+      userId,
+      fileSource
+    });
 
     // 保存文件信息到数据库
     db.run(
@@ -212,9 +240,14 @@ export const directUpload = async (req, res) => {
       [uniqueFilename, originalName, fileMimetype, fileSize, finalPath, userId, fileSource],
       function(err) {
         if (err) {
-          console.error('保存文件记录失败:', err);
-          return res.status(500).json({ error: '保存文件记录失败' });
+          console.error('[直接上传] 保存文件记录失败:', err);
+          return res.status(500).json({
+            error: '保存文件记录失败',
+            details: err.message
+          });
         }
+
+        console.log('[直接上传] 数据库保存成功，文件ID:', this.lastID);
 
         const newFile = {
           id: this.lastID,
@@ -238,6 +271,8 @@ export const directUpload = async (req, res) => {
           const roomName = `user_${userId}`;
           console.log('[直接上传] 广播文件上传事件到房间:', roomName, '文件:', newFile.original_name);
           io.to(roomName).emit('file_uploaded', newFile);
+        } else {
+          console.error('[直接上传] io 实例不存在，无法广播文件上传事件');
         }
 
         // 异步生成缩略图（不阻塞响应）
@@ -251,7 +286,7 @@ export const directUpload = async (req, res) => {
                   .resize(300, 300, { fit: 'inside' })
                   .jpeg({ quality: 80, progressive: true })
                   .toFile(thumbPath),
-                
+               
                 sharp(finalPath)
                   .resize(100, 100, { fit: 'cover' })
                   .jpeg({ quality: 70, progressive: true })
@@ -267,8 +302,15 @@ export const directUpload = async (req, res) => {
       }
     );
   } catch (error) {
-    console.error('[直接上传] 失败:', error);
-    res.status(500).json({ error: '上传失败' });
+    console.error('[直接上传] 失败:', {
+      message: error.message,
+      stack: error.stack,
+      code: error.code
+    });
+    res.status(500).json({
+      error: '上传失败',
+      details: error.message
+    });
   }
 };
 
