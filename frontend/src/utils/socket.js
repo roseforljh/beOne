@@ -32,10 +32,9 @@ export const connectSocket = (token) => {
       // 开发环境连接到本地5000端口
       return `http://${window.location.hostname}:5000`;
     } else {
-      // 生产环境：从当前页面URL获取主机名，但连接到5000端口
-      const protocol = window.location.protocol === 'https:' ? 'https:' : 'http:';
+      // 生产环境：使用HTTP连接到5000端口（通常5000端口不提供SSL）
       const hostname = window.location.hostname;
-      return `${protocol}//${hostname}:5000`;
+      return `http://${hostname}:5000`;
     }
   };
 
