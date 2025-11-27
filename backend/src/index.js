@@ -4,6 +4,7 @@ import cors from 'cors';
 import dotenv from 'dotenv';
 import compression from 'compression';
 import cluster from 'cluster';
+import os from 'os';
 import { initDatabase } from './config/database.js';
 import { initSocket } from './config/socket.js';
 import { cacheMiddleware } from './middleware/cache.js';
@@ -58,14 +59,14 @@ app.use((req, res, next) => {
   res.setHeader('X-Content-Type-Options', 'nosniff');
   res.setHeader('X-Frame-Options', 'DENY');
   res.setHeader('X-XSS-Protection', '1; mode=block');
-  
+
   // 缓存控制
   if (req.method === 'GET' && req.path.startsWith('/api/files/')) {
     res.setHeader('Cache-Control', 'public, max-age=31536000'); // 1年
   } else {
     res.setHeader('Cache-Control', 'no-cache, no-store, must-revalidate');
   }
-  
+
   next();
 });
 
@@ -101,17 +102,30 @@ initDatabase()
   .then(() => {
     // 初始化 Socket.IO 并导出 io 实例
     const io = initSocket(httpServer);
-    
+
     // 将 io 实例挂载到 app 上，供路由使用
     app.set('io', io);
 
     httpServer.listen(PORT, '0.0.0.0', () => {
       const workerId = cluster.worker ? cluster.worker.id : 'Master';
       const pid = process.pid;
+
+      // 获取本机 IP
+      const interfaces = os.networkInterfaces();
+      let localIP = 'localhost';
+      for (const name of Object.keys(interfaces)) {
+        for (const iface of interfaces[name]) {
+          if (!iface.internal && iface.family === 'IPv4') {
+            localIP = iface.address;
+            break;
+          }
+        }
+      }
+
       console.log(`
 🎯 太极文件传输系统后端启动成功 [Worker ${workerId}, PID: ${pid}]`);
       console.log(`📡 服务器运行在: http://localhost:${PORT}`);
-      console.log(`📱 局域网访问: http://192.168.0.101:${PORT}`);
+      console.log(`📱 局域网访问: http://${localIP}:${PORT}`);
       console.log(`💬 WebSocket 实时通信已启用`);
       console.log(`🔐 默认账号: root / 123456`);
       console.log(`👤 游客模式已启用`);

@@ -2,7 +2,7 @@ import { defineConfig } from 'vite'
 import react from '@vitejs/plugin-react'
 import { visualizer } from 'rollup-plugin-visualizer'
 
-export default defineConfig({
+export default defineConfig(({ mode }) => ({
   plugins: [
     react({
       // 启用快速刷新
@@ -36,8 +36,8 @@ export default defineConfig({
     ]
   },
   build: {
-    // 设置输出目录
-    outDir: 'dist',
+    // 设置输出目录：移动端模式下输出到 beone-mobile/www
+    outDir: mode === 'mobile' ? '../beone-mobile/www' : 'dist',
     emptyOutDir: true, // 构建时清空目标目录
     // 生产环境优化
     target: 'esnext',
@@ -100,5 +100,5 @@ export default defineConfig({
     logOverride: { 'this-is-undefined-in-esm': 'silent' },
     drop: ['debugger']  // 临时保留 console 用于调试
   }
-})
+}))
 

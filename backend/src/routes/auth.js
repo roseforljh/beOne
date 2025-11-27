@@ -14,24 +14,24 @@ router.post('/guest-login', async (req, res) => {
     const guestUsername = `guest_${crypto.randomBytes(8).toString('hex')}`;
     const guestPassword = crypto.randomBytes(16).toString('hex');
     const hashedPassword = await bcrypt.hash(guestPassword, 10);
-    
+
     db.run(
       'INSERT INTO users (username, password, is_guest) VALUES (?, ?, 1)',
       [guestUsername, hashedPassword],
-      function(err) {
+      function (err) {
         if (err) {
           console.error('创建游客账号失败:', err);
           return res.status(500).json({ error: '创建游客账号失败' });
         }
-        
+
         const user = {
           id: this.lastID,
           username: guestUsername,
           is_guest: 1
         };
-        
+
         // 确保使用与认证中间件相同的JWT_SECRET
-        const JWT_SECRET = 'taiji_secret_key_change_in_production';
+        const JWT_SECRET = process.env.JWT_SECRET || 'taiji_secret_key_change_in_production';
         const token = jwt.sign(
           {
             id: user.id,
@@ -41,7 +41,7 @@ router.post('/guest-login', async (req, res) => {
           JWT_SECRET,
           { expiresIn: '30d' }
         );
-        
+
         res.json({
           token,
           user: {
@@ -77,13 +77,13 @@ router.post('/login', (req, res) => {
 
     try {
       const validPassword = await bcrypt.compare(password, user.password);
-      
+
       if (!validPassword) {
         return res.status(401).json({ error: '用户名或密码错误' });
       }
 
       // 确保使用与认证中间件相同的JWT_SECRET
-      const JWT_SECRET = 'taiji_secret_key_change_in_production';
+      const JWT_SECRET = process.env.JWT_SECRET || 'taiji_secret_key_change_in_production';
       const token = jwt.sign(
         {
           id: user.id,
@@ -111,17 +111,17 @@ router.post('/login', (req, res) => {
 // 调试端点 - 验证token
 router.post('/debug-token', (req, res) => {
   const { token } = req.body;
-  
+
   if (!token) {
     return res.status(400).json({ error: '未提供token' });
   }
-  
+
   console.log('[Debug Token] 收到token验证请求:', {
     tokenPreview: token.substring(0, 30) + '...',
     tokenLength: token.length,
     headers: req.headers
   });
-  
+
   jwt.verify(token, JWT_SECRET, (err, user) => {
     if (err) {
       console.error('[Debug Token] Token验证失败:', {
@@ -135,7 +135,7 @@ router.post('/debug-token', (req, res) => {
         secretPreview: JWT_SECRET.substring(0, 10) + '...'
       });
     }
-    
+
     console.log('[Debug Token] Token验证成功:', user);
     res.json({
       valid: true,

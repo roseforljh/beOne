@@ -1,7 +1,7 @@
 import jwt from 'jsonwebtoken';
 
 // 确保JWT_SECRET在所有环境下都一致
-const JWT_SECRET = 'taiji_secret_key_change_in_production';
+const JWT_SECRET = process.env.JWT_SECRET || 'taiji_secret_key_change_in_production';
 
 export const authenticateToken = (req, res, next) => {
   const authHeader = req.headers['authorization'];
@@ -52,14 +52,14 @@ export const generateToken = (user) => {
     JWT_SECRET,
     { expiresIn: '30d' }
   );
-  
+
   console.log('[Auth] 🎫 生成新 Token:', {
     userId: user.id,
     username: user.username,
     isGuest: user.is_guest === 1 || user.is_guest === true,
     tokenPreview: token.substring(0, 30) + '...'
   });
-  
+
   return token;
 };
 

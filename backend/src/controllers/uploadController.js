@@ -14,16 +14,44 @@ const chunksDir = path.join(uploadsDir, 'chunks');
 const filesDir = path.join(uploadsDir, 'files');
 const thumbsDir = path.join(uploadsDir, 'thumbs');
 
+// 清理过期分片（超过24小时）
+const cleanupOldChunks = () => {
+  fs.readdir(chunksDir, (err, files) => {
+    if (err) return;
+
+    const now = Date.now();
+    const ONE_DAY = 24 * 60 * 60 * 1000;
+
+    files.forEach(file => {
+      const filePath = path.join(chunksDir, file);
+      fs.stat(filePath, (err, stats) => {
+        if (err) return;
+
+        if (now - stats.mtimeMs > ONE_DAY) {
+          fs.unlink(filePath, (err) => {
+            if (!err) console.log('已清理过期分片:', file);
+          });
+        }
+      });
+    });
+  });
+};
+
 // 初始化上传（优化：立即响应，减少延迟）
 export const initUpload = (req, res) => {
   const { filename, totalChunks, fileSize, mimetype } = req.body;
-  
+
   if (!filename || !totalChunks || !fileSize) {
     return res.status(400).json({ error: '缺少必要参数' });
   }
 
   const uploadId = `${Date.now()}-${Math.random().toString(36).substr(2, 9)}`;
-  
+
+  // 1% 的概率触发清理过期分片
+  if (Math.random() < 0.01) {
+    cleanupOldChunks();
+  }
+
   // 立即响应，不做额外处理
   res.json({
     uploadId,
@@ -72,15 +100,17 @@ export const completeUpload = async (req, res) => {
   if (!uploadId || !filename || !totalChunks) {
     return res.status(400).json({ error: '缺少必要参数' });
   }
-  
+
   // source: 'user' = 我的文件页面上传, 'chat' = 会话中上传
   const fileSource = source || 'user';
+
+  let finalPath = null;
 
   try {
     // 生成唯一文件名
     const ext = path.extname(filename);
     const uniqueFilename = `${Date.now()}-${Math.random().toString(36).substr(2, 9)}${ext}`;
-    const finalPath = path.join(filesDir, uniqueFilename);
+    finalPath = path.join(filesDir, uniqueFilename);
 
     // 创建写入流
     const writeStream = fs.createWriteStream(finalPath);
@@ -88,14 +118,14 @@ export const completeUpload = async (req, res) => {
     // 按顺序合并分片
     for (let i = 0; i < totalChunks; i++) {
       const chunkPath = path.join(chunksDir, `${uploadId}-${i}`);
-      
+
       if (!fs.existsSync(chunkPath)) {
         throw new Error(`分片 ${i} 不存在`);
       }
 
       const chunkBuffer = fs.readFileSync(chunkPath);
       writeStream.write(chunkBuffer);
-      
+
       // 删除分片
       fs.unlinkSync(chunkPath);
     }
@@ -116,7 +146,7 @@ export const completeUpload = async (req, res) => {
       `INSERT INTO files (filename, original_name, mimetype, size, path, user_id, is_public, source)
        VALUES (?, ?, ?, ?, ?, ?, 0, ?)`,
       [uniqueFilename, filename, mimetype || 'application/octet-stream', fileSize, finalPath, userId, fileSource],
-      function(err) {
+      function (err) {
         if (err) {
           return res.status(500).json({ error: '保存文件记录失败' });
         }
@@ -153,7 +183,7 @@ export const completeUpload = async (req, res) => {
         // 异步生成缩略图（不阻塞响应）
         if (mimetype && mimetype.startsWith('image/')) {
           const thumbPath = path.join(thumbsDir, uniqueFilename);
-          
+
           // 使用 setImmediate 确保在下一个事件循环中执行
           setImmediate(async () => {
             try {
@@ -163,14 +193,14 @@ export const completeUpload = async (req, res) => {
                   .resize(300, 300, { fit: 'inside' })
                   .jpeg({ quality: 80, progressive: true })
                   .toFile(thumbPath),
-                
+
                 // 小预览图 100x100
                 sharp(finalPath)
                   .resize(100, 100, { fit: 'cover' })
                   .jpeg({ quality: 70, progressive: true })
                   .toFile(thumbPath.replace(path.extname(thumbPath), '_small' + path.extname(thumbPath)))
               ]);
-              
+
               console.log('缩略图生成完成（异步后台处理）');
             } catch (thumbErr) {
               console.error('生成缩略图失败:', thumbErr);
@@ -181,6 +211,17 @@ export const completeUpload = async (req, res) => {
     );
   } catch (error) {
     console.error('合并文件失败:', error);
+
+    // 清理可能生成的损坏文件
+    if (finalPath && fs.existsSync(finalPath)) {
+      try {
+        fs.unlinkSync(finalPath);
+        console.log('已清理损坏的文件:', finalPath);
+      } catch (cleanupErr) {
+        console.error('清理损坏文件失败:', cleanupErr);
+      }
+    }
+
     res.status(500).json({ error: '合并文件失败' });
   }
 };
@@ -188,7 +229,7 @@ export const completeUpload = async (req, res) => {
 // 直接上传（小文件，不分片）
 export const directUpload = async (req, res) => {
   console.log('[直接上传] 开始处理请求');
-  
+
   try {
     const userId = req.user.id;
     const file = req.file;
@@ -213,7 +254,7 @@ export const directUpload = async (req, res) => {
       console.log('[直接上传] 错误: 没有上传文件');
       return res.status(400).json({ error: '没有上传文件' });
     }
-    
+
     // source: 'user' = 我的文件页面上传, 'chat' = 会话中上传
     const fileSource = source || 'user';
 
@@ -238,7 +279,7 @@ export const directUpload = async (req, res) => {
       `INSERT INTO files (filename, original_name, mimetype, size, path, user_id, is_public, source)
        VALUES (?, ?, ?, ?, ?, ?, 0, ?)`,
       [uniqueFilename, originalName, fileMimetype, fileSize, finalPath, userId, fileSource],
-      function(err) {
+      function (err) {
         if (err) {
           console.error('[直接上传] 保存文件记录失败:', err);
           return res.status(500).json({
@@ -278,7 +319,7 @@ export const directUpload = async (req, res) => {
         // 异步生成缩略图（不阻塞响应）
         if (fileMimetype && fileMimetype.startsWith('image/')) {
           const thumbPath = path.join(thumbsDir, uniqueFilename);
-          
+
           setImmediate(async () => {
             try {
               await Promise.all([
@@ -286,13 +327,13 @@ export const directUpload = async (req, res) => {
                   .resize(300, 300, { fit: 'inside' })
                   .jpeg({ quality: 80, progressive: true })
                   .toFile(thumbPath),
-               
+
                 sharp(finalPath)
                   .resize(100, 100, { fit: 'cover' })
                   .jpeg({ quality: 70, progressive: true })
                   .toFile(thumbPath.replace(path.extname(thumbPath), '_small' + path.extname(thumbPath)))
               ]);
-              
+
               console.log('[直接上传] 缩略图生成完成');
             } catch (thumbErr) {
               console.error('[直接上传] 生成缩略图失败:', thumbErr);

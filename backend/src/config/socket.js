@@ -4,7 +4,7 @@ import { db } from './database.js';
 // import { registerGuestSession, unregisterGuestSession, updateGuestActivity } from '../utils/guestCleanup.js';
 
 // 确保JWT_SECRET在所有环境下都一致
-const JWT_SECRET = 'taiji_secret_key_change_in_production';
+const JWT_SECRET = process.env.JWT_SECRET || 'taiji_secret_key_change_in_production';
 
 // 存储在线用户
 const onlineUsers = new Map();
@@ -12,7 +12,7 @@ const onlineUsers = new Map();
 export const initSocket = (httpServer) => {
   const io = new Server(httpServer, {
     cors: {
-      origin: '*', // 在生产环境中应该设置为具体的域名
+      origin: process.env.CORS_ORIGIN || '*', // 支持环境变量配置
       methods: ['GET', 'POST'],
       credentials: true
     },
@@ -36,7 +36,7 @@ export const initSocket = (httpServer) => {
   // Socket 认证中间件
   io.use((socket, next) => {
     const token = socket.handshake.auth.token;
-    
+
     if (!token) {
       return next(new Error('认证失败：未提供令牌'));
     }
@@ -57,7 +57,7 @@ export const initSocket = (httpServer) => {
     // 使用 socket.id 作为会话标识
     socket.sessionId = socket.id;
     console.log(`用户连接: ${socket.username} (${socket.userId}) [会话: ${socket.sessionId}]${socket.isGuest ? ' [游客]' : ''}`);
-    
+
     // 记录在线用户
     onlineUsers.set(socket.id, {
       socketId: socket.id,
@@ -82,7 +82,7 @@ export const initSocket = (httpServer) => {
 
     // 加入用户房间（用于接收针对该用户的消息）
     socket.join(`user_${socket.userId}`);
-    
+
     // 心跳响应
     socket.on('ping', () => {
       socket.emit('pong');
@@ -91,13 +91,13 @@ export const initSocket = (httpServer) => {
     // 发送文本消息
     socket.on('send_message', async (data) => {
       const { content, conversationId } = data;
-      
+
       try {
         // 保存到数据库，包含 session_id 和 conversation_id
         db.run(
           'INSERT INTO messages (user_id, type, content, session_id, conversation_id) VALUES (?, ?, ?, ?, ?)',
           [socket.userId, 'text', content, socket.sessionId, conversationId || null],
-          function(err) {
+          function (err) {
             if (err) {
               socket.emit('error', { message: '消息发送失败' });
               return;
@@ -116,10 +116,10 @@ export const initSocket = (httpServer) => {
 
             // 广播给该用户的所有会话（手机和电脑）
             io.to(`user_${socket.userId}`).emit('new_message', message);
-            
+
             // 如果有会话ID，更新会话的更新时间并广播更新事件
             if (conversationId) {
-              db.run('UPDATE conversations SET updated_at = CURRENT_TIMESTAMP WHERE id = ?', [conversationId], function(err) {
+              db.run('UPDATE conversations SET updated_at = CURRENT_TIMESTAMP WHERE id = ?', [conversationId], function (err) {
                 if (!err) {
                   // 广播会话更新事件，通知所有客户端刷新会话列表
                   io.to(`user_${socket.userId}`).emit('conversation_updated', {
@@ -140,7 +140,7 @@ export const initSocket = (httpServer) => {
     // 发送文件消息
     socket.on('send_file_message', async (data) => {
       const { fileId, conversationId } = data;
-      
+
       try {
         // 验证文件存在
         db.get('SELECT * FROM files WHERE id = ? AND user_id = ?', [fileId, socket.userId], (err, file) => {
@@ -153,7 +153,7 @@ export const initSocket = (httpServer) => {
           db.run(
             'INSERT INTO messages (user_id, type, file_id, session_id, conversation_id) VALUES (?, ?, ?, ?, ?)',
             [socket.userId, 'file', fileId, socket.sessionId, conversationId || null],
-            function(err) {
+            function (err) {
               if (err) {
                 socket.emit('error', { message: '文件消息发送失败' });
                 return;
@@ -178,10 +178,10 @@ export const initSocket = (httpServer) => {
 
               // 广播给该用户的所有会话（手机和电脑）
               io.to(`user_${socket.userId}`).emit('new_message', message);
-              
+
               // 如果有会话ID，更新会话的更新时间并广播更新事件
               if (conversationId) {
-                db.run('UPDATE conversations SET updated_at = CURRENT_TIMESTAMP WHERE id = ?', [conversationId], function(err) {
+                db.run('UPDATE conversations SET updated_at = CURRENT_TIMESTAMP WHERE id = ?', [conversationId], function (err) {
                   if (!err) {
                     // 广播会话更新事件，通知所有客户端刷新会话列表
                     io.to(`user_${socket.userId}`).emit('conversation_updated', {
@@ -213,11 +213,11 @@ export const initSocket = (httpServer) => {
     // 撤回消息
     socket.on('recall_message', async (data) => {
       const { messageId } = data;
-      
+
       console.log('=== 撤回消息请求 ===');
       console.log('消息ID:', messageId);
       console.log('用户ID:', socket.userId);
-      
+
       try {
         // 验证消息所有权
         db.get('SELECT * FROM messages WHERE id = ? AND user_id = ?', [messageId, socket.userId], (err, message) => {
@@ -236,7 +236,7 @@ export const initSocket = (httpServer) => {
           console.log('找到消息，准备删除:', message);
 
           // 删除消息
-          db.run('DELETE FROM messages WHERE id = ?', [messageId], function(err) {
+          db.run('DELETE FROM messages WHERE id = ?', [messageId], function (err) {
             if (err) {
               console.error('删除消息失败:', err);
               socket.emit('error', { message: '撤回失败' });
@@ -265,7 +265,7 @@ export const initSocket = (httpServer) => {
     // 批量消息处理（可选）
     socket.on('batch_messages', async (messages) => {
       if (!Array.isArray(messages) || messages.length === 0) return;
-      
+
       // 批量处理消息
       for (const msg of messages) {
         if (msg.event === 'send_message') {
@@ -275,18 +275,18 @@ export const initSocket = (httpServer) => {
         }
       }
     });
-    
+
     // 断开连接
     socket.on('disconnect', (reason) => {
       console.log(`用户断开: ${socket.username} (${socket.userId})${socket.isGuest ? ' [游客]' : ''} - 原因: ${reason}`);
-      
+
       // 从在线用户列表中移除
       onlineUsers.delete(socket.id);
-      
+
       // 通知所有 root 用户更新在线列表
       io.emit('online_users_update', Array.from(onlineUsers.values()));
     });
-    
+
     // 错误处理
     socket.on('error', (error) => {
       console.error(`Socket错误 [${socket.username}]:`, error);

@@ -4,6 +4,7 @@ import path from 'path';
 import { fileURLToPath } from 'url';
 import { authenticateToken } from '../middleware/auth.js';
 import { initUpload, uploadChunk, completeUpload, directUpload } from '../controllers/uploadController.js';
+import jwt from 'jsonwebtoken';
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
@@ -57,8 +58,8 @@ router.use((req, res, next) => {
     return res.status(401).json({ error: '未提供认证令牌' });
   }
 
-  const JWT_SECRET = 'taiji_secret_key_change_in_production';
-  
+  const JWT_SECRET = process.env.JWT_SECRET || 'taiji_secret_key_change_in_production';
+
   jwt.verify(token, JWT_SECRET, (err, user) => {
     if (err) {
       console.log('[Upload Auth] Token验证失败:', err.message);

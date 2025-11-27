@@ -69,88 +69,103 @@ const ChatInput = memo(function ChatInput({ conversationId, onFileSent }) {
     const files = Array.from(e.target.files);
     if (files.length === 0) return;
 
-    setUploading(true);
-    setUploadingFiles(files);
-    setCancelledIndexes(new Set());
-    uploadersRef.current = [];
-    
-    // 初始化进度和速度
-    const initialProgress = {};
-    const initialSpeed = {};
-    files.forEach((file, index) => {
-      initialProgress[index] = 0;
-      initialSpeed[index] = 0;
-    });
-    setUploadProgress(initialProgress);
-    setUploadSpeed(initialSpeed);
+    try {
+      setUploading(true);
+      setUploadingFiles(files);
+      setCancelledIndexes(new Set());
+      uploadersRef.current = [];
+      
+      // 初始化进度和速度
+      const initialProgress = {};
+      const initialSpeed = {};
+      files.forEach((file, index) => {
+        initialProgress[index] = 0;
+        initialSpeed[index] = 0;
+      });
+      setUploadProgress(initialProgress);
+      setUploadSpeed(initialSpeed);
 
-    // 顺序上传文件（一个接一个）
-    const results = [];
-    for (let index = 0; index < files.length; index++) {
-      // 检查是否已取消
-      if (cancelledIndexes.has(index)) {
-        continue;
-      }
+      // 顺序上传文件（一个接一个）
+      const results = [];
+      for (let index = 0; index < files.length; index++) {
+        // 检查是否已取消
+        if (cancelledIndexes.has(index)) {
+          continue;
+        }
 
-      const file = files[index];
-      const uploader = new Uploader(
-        file,
-        (prog) => {
-          console.log(`文件 ${index} 进度:`, prog);
-          setUploadProgress(prev => {
-            const newProgress = {
+        const file = files[index];
+        const uploader = new Uploader(
+          file,
+          (prog) => {
+            // console.log(`文件 ${index} 进度:`, prog);
+            setUploadProgress(prev => ({
               ...prev,
               [index]: prog
-            };
-            console.log('更新进度状态:', newProgress);
-            return newProgress;
+            }));
+          },
+          (speed) => {
+            setUploadSpeed(prev => ({
+              ...prev,
+              [index]: speed
+            }));
+          },
+          'chat' // 会话中上传的文件，source='chat'
+        );
+        
+        uploadersRef.current[index] = uploader;
+
+        try {
+          const result = await uploader.upload();
+          
+          // 检查是否在上传过程中被取消
+          if (result.cancelled) {
+            continue;
+          }
+          
+          results.push({ index, file, result });
+
+          // 上传成功立即发送消息
+          if (result.success) {
+            sendFileMessage(result.file.id, conversationId);
+            if (onFileSent) {
+              try {
+                onFileSent(result.file);
+              } catch (err) {
+                console.error('onFileSent 回调执行失败:', err);
+              }
+            }
+          }
+        } catch (err) {
+          console.error(`文件 ${index} 上传过程发生异常:`, err);
+          results.push({
+            index,
+            file,
+            result: { success: false, error: err.message }
           });
-        },
-        (speed) => {
-          setUploadSpeed(prev => ({
-            ...prev,
-            [index]: speed
-          }));
-        },
-        'chat' // 会话中上传的文件，source='chat'
-      );
-      
-      uploadersRef.current[index] = uploader;
-
-      const result = await uploader.upload();
-      
-      // 检查是否在上传过程中被取消
-      if (result.cancelled) {
-        continue;
-      }
-      
-      results.push({ index, file, result });
-
-      // 上传成功立即发送消息
-      if (result.success) {
-        sendFileMessage(result.file.id, conversationId);
-        if (onFileSent) {
-          onFileSent(result.file);
         }
       }
-    }
 
-    // 检查失败的文件
-    const failed = results.filter(r => !r.result.success);
-    if (failed.length > 0) {
-      alert(`${failed.length} 个文件上传失败`);
-    }
-
-    setUploading(false);
-    setUploadingFiles([]);
-    setUploadProgress({});
-    setUploadSpeed({});
-    setCancelledIndexes(new Set());
-    uploadersRef.current = [];
-    
-    // 重置文件选择器
-    if (fileInputRef.current) {
-      fileInputRef.current.value = '';
+      // 检查失败的文件
+      const failed = results.filter(r => !r.result.success && !r.result.cancelled);
+      if (failed.length > 0) {
+        console.error('上传失败的文件:', failed);
+        // alert(`${failed.length} 个文件上传失败`); // 暂时移除 alert，避免打断用户
+      }
+    } catch (error) {
+      console.error('文件选择处理过程中发生严重错误:', error);
+    } finally {
+      // 无论发生什么，都必须重置状态
+      setUploading(false);
+      setUploadingFiles([]);
+      setUploadProgress({});
+      setUploadSpeed({});
+      setCancelledIndexes(new Set());
+      uploadersRef.current = [];
+      
+      // 重置文件选择器
+      if (fileInputRef.current) {
+        fileInputRef.current.value = '';
+      }
     }
   }, [conversationId, onFileSent, cancelledIndexes]);
 
