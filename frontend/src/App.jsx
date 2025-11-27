@@ -3,6 +3,7 @@ import { lazy, Suspense, useEffect, memo } from 'react';
 import { Capacitor } from '@capacitor/core';
 import { AuthProvider, useAuth } from './contexts/AuthContext';
 import ErrorBoundary from './components/ErrorBoundary';
+import LoadingSpinner from './components/LoadingSpinner';
 
 // 轻量级加载占位符（避免导入重型组件）
 const MinimalLoader = memo(() => (

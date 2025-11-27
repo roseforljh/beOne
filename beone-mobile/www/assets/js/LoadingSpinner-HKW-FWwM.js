@@ -1,1 +1,0 @@
-import{j as e,T as s}from"./index-SZm8zuDz.js";function i({message:i="加载中..."}){return e.jsxs("div",{className:"flex flex-col items-center justify-center min-h-[400px]",children:[e.jsx(s,{size:100,animate:!0}),e.jsx("p",{className:"mt-4 text-taiji-gray-500",children:i})]})}export{i as L};
