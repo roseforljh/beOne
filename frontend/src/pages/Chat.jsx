@@ -193,13 +193,14 @@ export default function Chat() {
     } else if (data.type === 'updated') {
       // 通用更新逻辑，合并 data 中的所有字段
       setConversations(prev =>
-        prev.map(c => (c.id === data.conversationId ? { ...c, ...data } : c))
+        prev.map(c => (String(c.id) === String(data.conversationId) ? { ...c, ...data } : c))
       );
     } else if (data.type === 'deleted') {
       // 如果删除的是当前活动会话
       // 注意：这里需要使用函数式更新时的最新 prev 状态来判断
       setConversations(prev => {
-        const remaining = prev.filter(c => c.id !== data.conversationId);
+        // 使用 String() 确保类型一致，防止后端传回字符串 ID 而本地是数字 ID
+        const remaining = prev.filter(c => String(c.id) !== String(data.conversationId));
         
         // 只有当被删除的会话 ID 等于当前选中的 ID 时，才需要切换
         // 但这里有一个闭包陷阱：currentConversationId 是旧的
@@ -207,7 +208,7 @@ export default function Chat() {
         // 由于我们无法在 setState 内部获取准确的 currentConversationId（它依赖外部闭包），
         // 我们依赖外部的 currentConversationId 依赖项。
         
-        if (currentConversationId === data.conversationId) {
+        if (String(currentConversationId) === String(data.conversationId)) {
            const nextId = remaining.length > 0 ? remaining[0].id : null;
            // 这里调用 setCurrentConversationId 是安全的，但要注意渲染循环
            // 更好的做法是使用 useEffect 监听 conversations 变化来自动修正 selection，

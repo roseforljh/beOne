@@ -20,7 +20,7 @@ const httpServer = createServer(app);
 const PORT = process.env.PORT || 5000;
 
 // 性能优化中间件
-// 1. 启用 gzip 压缩（提高压缩级别以充分利用 CPU）
+// 1. 启用 gzip 压缩（优化：降低压缩级别减少 CPU 开销）
 app.use(compression({
   filter: (req, res) => {
     if (req.headers['x-no-compression']) {
@@ -28,8 +28,8 @@ app.use(compression({
     }
     return compression.filter(req, res);
   },
-  level: 9, // 最高压缩级别，充分利用 CPU
-  threshold: 512 // 降低阈值，压缩更多内容
+  level: 6, // 平衡压缩级别，减少 CPU 开销
+  threshold: 1024 // 只压缩大于 1KB 的响应
 }));
 
 // 2. CORS 配置优化
@@ -68,19 +68,7 @@ app.use((req, res, next) => {
   next();
 });
 
-// 5. 请求日志（仅开发环境）
-if (process.env.NODE_ENV !== 'production') {
-  app.use((req, res, next) => {
-    const start = Date.now();
-    res.on('finish', () => {
-      const duration = Date.now() - start;
-      if (duration > 1000) {
-        console.log(`[慢请求] ${req.method} ${req.path} - ${duration}ms`);
-      }
-    });
-    next();
-  });
-}
+// 5. 请求日志已移除以提高性能
 
 // 路由（添加缓存中间件）
 app.use('/api/auth', authRoutes);
@@ -120,16 +108,7 @@ initDatabase()
         }
       }
 
-      console.log(`
-🎯 太极文件传输系统后端启动成功 [Worker ${workerId}, PID: ${pid}]`);
-      console.log(`📡 服务器运行在: http://localhost:${PORT}`);
-      console.log(`📱 局域网访问: http://${localIP}:${PORT}`);
-      console.log(`💬 WebSocket 实时通信已启用`);
-      console.log(`🔐 默认账号: root / 123456`);
-      console.log(`👤 游客模式已启用`);
-      console.log(`⚡ 响应缓存已启用`);
-      console.log(`🚀 高性能模式已启用
-`);
+      console.log(`🎯 服务器启动成功 http://${localIP}:${PORT}`);
     });
   })
   .catch((err) => {

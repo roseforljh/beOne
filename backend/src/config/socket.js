@@ -1,12 +1,9 @@
 import { Server } from 'socket.io';
 import jwt from 'jsonwebtoken';
 import { db } from './database.js';
-// import { registerGuestSession, unregisterGuestSession, updateGuestActivity } from '../utils/guestCleanup.js';
 
-// 确保JWT_SECRET在所有环境下都一致
 const JWT_SECRET = process.env.JWT_SECRET;
 if (!JWT_SECRET) {
-  console.error('[Socket] FATAL: JWT_SECRET is not defined in environment variables');
   process.exit(1);
 }
 
@@ -58,9 +55,7 @@ export const initSocket = (httpServer) => {
 
   // 连接处理
   io.on('connection', (socket) => {
-    // 使用 socket.id 作为会话标识
     socket.sessionId = socket.id;
-    console.log(`用户连接: ${socket.username} (${socket.userId}) [会话: ${socket.sessionId}]${socket.isGuest ? ' [游客]' : ''}`);
 
     // 记录在线用户
     onlineUsers.set(socket.id, {
@@ -96,14 +91,58 @@ export const initSocket = (httpServer) => {
     socket.on('send_message', async (data) => {
       const { content, conversationId } = data;
 
-      try {
-        // 保存到数据库，包含 session_id 和 conversation_id
+      db.run(
+        'INSERT INTO messages (user_id, type, content, session_id, conversation_id) VALUES (?, ?, ?, ?, ?)',
+        [socket.userId, 'text', content, socket.sessionId, conversationId || null],
+        function (err) {
+          if (err) {
+            socket.emit('error', { message: '消息发送失败' });
+            return;
+          }
+
+          const message = {
+            id: this.lastID,
+            user_id: socket.userId,
+            username: socket.username,
+            type: 'text',
+            content: content,
+            session_id: socket.sessionId,
+            conversation_id: conversationId || null,
+            created_at: new Date().toISOString()
+          };
+
+          io.to(`user_${socket.userId}`).emit('new_message', message);
+
+          if (conversationId) {
+            db.run('UPDATE conversations SET updated_at = CURRENT_TIMESTAMP WHERE id = ?', [conversationId], function (err) {
+              if (!err) {
+                io.to(`user_${socket.userId}`).emit('conversation_updated', {
+                  conversationId: conversationId,
+                  updatedAt: new Date().toISOString()
+                });
+              }
+            });
+          }
+        }
+      );
+    });
+
+    // 发送文件消息
+    socket.on('send_file_message', async (data) => {
+      const { fileId, conversationId } = data;
+
+      db.get('SELECT * FROM files WHERE id = ? AND user_id = ?', [fileId, socket.userId], (err, file) => {
+        if (err || !file) {
+          socket.emit('error', { message: '文件不存在或无权访问' });
+          return;
+        }
+
         db.run(
-          'INSERT INTO messages (user_id, type, content, session_id, conversation_id) VALUES (?, ?, ?, ?, ?)',
-          [socket.userId, 'text', content, socket.sessionId, conversationId || null],
+          'INSERT INTO messages (user_id, type, file_id, session_id, conversation_id) VALUES (?, ?, ?, ?, ?)',
+          [socket.userId, 'file', fileId, socket.sessionId, conversationId || null],
           function (err) {
             if (err) {
-              socket.emit('error', { message: '消息发送失败' });
+              socket.emit('error', { message: '文件消息发送失败' });
               return;
             }
 
@@ -111,21 +150,24 @@ export const initSocket = (httpServer) => {
               id: this.lastID,
               user_id: socket.userId,
               username: socket.username,
-              type: 'text',
-              content: content,
+              type: 'file',
+              file: {
+                id: file.id,
+                filename: file.filename,
+                original_name: file.original_name,
+                mimetype: file.mimetype,
+                size: file.size
+              },
               session_id: socket.sessionId,
               conversation_id: conversationId || null,
               created_at: new Date().toISOString()
             };
 
-            // 广播给该用户的所有会话（手机和电脑）
             io.to(`user_${socket.userId}`).emit('new_message', message);
 
-            // 如果有会话ID，更新会话的更新时间并广播更新事件
             if (conversationId) {
               db.run('UPDATE conversations SET updated_at = CURRENT_TIMESTAMP WHERE id = ?', [conversationId], function (err) {
                 if (!err) {
-                  // 广播会话更新事件，通知所有客户端刷新会话列表
                   io.to(`user_${socket.userId}`).emit('conversation_updated', {
                     conversationId: conversationId,
                     updatedAt: new Date().toISOString()
@@ -135,73 +177,7 @@ export const initSocket = (httpServer) => {
             }
           }
         );
-      } catch (error) {
-        console.error('发送消息失败:', error);
-        socket.emit('error', { message: '消息发送失败' });
-      }
-    });
-
-    // 发送文件消息
-    socket.on('send_file_message', async (data) => {
-      const { fileId, conversationId } = data;
-
-      try {
-        // 验证文件存在
-        db.get('SELECT * FROM files WHERE id = ? AND user_id = ?', [fileId, socket.userId], (err, file) => {
-          if (err || !file) {
-            socket.emit('error', { message: '文件不存在或无权访问' });
-            return;
-          }
-
-          // 保存到数据库，包含 session_id 和 conversation_id
-          db.run(
-            'INSERT INTO messages (user_id, type, file_id, session_id, conversation_id) VALUES (?, ?, ?, ?, ?)',
-            [socket.userId, 'file', fileId, socket.sessionId, conversationId || null],
-            function (err) {
-              if (err) {
-                socket.emit('error', { message: '文件消息发送失败' });
-                return;
-              }
-
-              const message = {
-                id: this.lastID,
-                user_id: socket.userId,
-                username: socket.username,
-                type: 'file',
-                file: {
-                  id: file.id,
-                  filename: file.filename,
-                  original_name: file.original_name,
-                  mimetype: file.mimetype,
-                  size: file.size
-                },
-                session_id: socket.sessionId,
-                conversation_id: conversationId || null,
-                created_at: new Date().toISOString()
-              };
-
-              // 广播给该用户的所有会话（手机和电脑）
-              io.to(`user_${socket.userId}`).emit('new_message', message);
-
-              // 如果有会话ID，更新会话的更新时间并广播更新事件
-              if (conversationId) {
-                db.run('UPDATE conversations SET updated_at = CURRENT_TIMESTAMP WHERE id = ?', [conversationId], function (err) {
-                  if (!err) {
-                    // 广播会话更新事件，通知所有客户端刷新会话列表
-                    io.to(`user_${socket.userId}`).emit('conversation_updated', {
-                      conversationId: conversationId,
-                      updatedAt: new Date().toISOString()
-                    });
-                  }
-                });
-              }
-            }
-          );
-        });
-      } catch (error) {
-        console.error('发送文件消息失败:', error);
-        socket.emit('error', { message: '文件消息发送失败' });
-      }
+      });
     });
 
     // 用户正在输入（不需要广播，因为只有自己）
@@ -218,52 +194,29 @@ export const initSocket = (httpServer) => {
     socket.on('recall_message', async (data) => {
       const { messageId } = data;
 
-      console.log('=== 撤回消息请求 ===');
-      console.log('消息ID:', messageId);
-      console.log('用户ID:', socket.userId);
+      db.get('SELECT * FROM messages WHERE id = ? AND user_id = ?', [messageId, socket.userId], (err, message) => {
+        if (err) {
+          socket.emit('error', { message: '查询消息失败' });
+          return;
+        }
 
-      try {
-        // 验证消息所有权
-        db.get('SELECT * FROM messages WHERE id = ? AND user_id = ?', [messageId, socket.userId], (err, message) => {
+        if (!message) {
+          socket.emit('error', { message: '消息不存在或无权撤回' });
+          return;
+        }
+
+        db.run('DELETE FROM messages WHERE id = ?', [messageId], function (err) {
           if (err) {
-            console.error('查询消息失败:', err);
-            socket.emit('error', { message: '查询消息失败' });
+            socket.emit('error', { message: '撤回失败' });
             return;
           }
 
-          if (!message) {
-            console.error('消息不存在或无权撤回，messageId:', messageId, 'userId:', socket.userId);
-            socket.emit('error', { message: '消息不存在或无权撤回' });
-            return;
-          }
-
-          console.log('找到消息，准备删除:', message);
-
-          // 删除消息
-          db.run('DELETE FROM messages WHERE id = ?', [messageId], function (err) {
-            if (err) {
-              console.error('删除消息失败:', err);
-              socket.emit('error', { message: '撤回失败' });
-              return;
-            }
-
-            console.log('消息已从数据库删除，受影响的行数:', this.changes);
-
-            // 通知该用户的所有会话（手机和电脑）
-            const roomName = `user_${socket.userId}`;
-            console.log('广播撤回事件到房间:', roomName, '消息ID:', messageId);
-            io.to(roomName).emit('message_recalled', {
-              messageId: messageId,
-              userId: socket.userId
-            });
-
-            console.log('已广播撤回事件到所有会话');
+          io.to(`user_${socket.userId}`).emit('message_recalled', {
+            messageId: messageId,
+            userId: socket.userId
           });
         });
-      } catch (error) {
-        console.error('撤回消息失败:', error);
-        socket.emit('error', { message: '撤回失败' });
-      }
+      });
     });
 
     // 批量消息处理（可选）
@@ -281,20 +234,13 @@ export const initSocket = (httpServer) => {
     });
 
     // 断开连接
-    socket.on('disconnect', (reason) => {
-      console.log(`用户断开: ${socket.username} (${socket.userId})${socket.isGuest ? ' [游客]' : ''} - 原因: ${reason}`);
-
-      // 从在线用户列表中移除
+    socket.on('disconnect', () => {
       onlineUsers.delete(socket.id);
-
-      // 通知所有 root 用户更新在线列表
       io.emit('online_users_update', Array.from(onlineUsers.values()));
     });
 
     // 错误处理
-    socket.on('error', (error) => {
-      console.error(`Socket错误 [${socket.username}]:`, error);
-    });
+    socket.on('error', () => {});
   });
 
   return io;

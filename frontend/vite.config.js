@@ -38,33 +38,32 @@ export default defineConfig(({ mode }) => ({
   build: {
     // 设置输出目录：移动端模式下输出到 beone-mobile/www
     outDir: mode === 'mobile' ? '../beone-mobile/www' : 'dist',
-    emptyOutDir: true, // 构建时清空目标目录
+    emptyOutDir: true,
     // 生产环境优化
     target: 'esnext',
     minify: 'terser',
     terserOptions: {
       compress: {
-        drop_console: false,  // 临时启用 console.log 用于调试
+        drop_console: true,  // 生产环境移除 console
         drop_debugger: true,
-        pure_funcs: []  // 临时允许 console.log
+        pure_funcs: ['console.log', 'console.info', 'console.debug']
       }
     },
     // 代码分割策略
     rollupOptions: {
       output: {
         manualChunks: {
-          // React 核心库
+          // React 核心库 - 最先加载
           'react-vendor': ['react', 'react-dom', 'react-router-dom'],
-          // Socket.IO
+          // Socket.IO - 延迟加载
           'socket-vendor': ['socket.io-client'],
-          // 其他库
+          // 动画库 - 延迟加载
           'utils-vendor': ['axios', 'framer-motion']
         },
-        // 优化 chunk 文件名 - 使用内容哈希以支持长期缓存
+        // 优化 chunk 文件名
         chunkFileNames: 'assets/js/[name]-[hash:8].js',
         entryFileNames: 'assets/js/[name]-[hash:8].js',
         assetFileNames: (assetInfo) => {
-          // 图片和字体使用更长的哈希,支持长期缓存
           const info = assetInfo.name.split('.');
           const ext = info[info.length - 1];
           if (/png|jpe?g|svg|gif|tiff|bmp|ico|webp/i.test(ext)) {
@@ -81,24 +80,31 @@ export default defineConfig(({ mode }) => ({
     cssCodeSplit: true,
     // chunk 大小警告限制
     chunkSizeWarningLimit: 1000,
-    // 启用 sourcemap（可选，调试用）
     sourcemap: false,
-    // 优化依赖预构建
     commonjsOptions: {
       transformMixedEsModules: true
     },
-    // 启用资源内联阈值
-    assetsInlineLimit: 4096 // 小于 4KB 的资源内联为 base64
+    // 小于 4KB 的资源内联为 base64
+    assetsInlineLimit: 4096
   },
-  // 优化依赖预构建
+  // 优化依赖预构建 - 预构建常用依赖加速首次加载
   optimizeDeps: {
-    include: ['react', 'react-dom', 'react-router-dom', 'axios', 'socket.io-client'],
+    include: [
+      'react',
+      'react-dom',
+      'react-router-dom',
+      'axios',
+      'socket.io-client',
+      '@capacitor/core',
+      '@capacitor/status-bar',
+      '@capacitor/keyboard'
+    ],
     exclude: []
   },
   // 性能优化
   esbuild: {
     logOverride: { 'this-is-undefined-in-esm': 'silent' },
-    drop: ['debugger']  // 临时保留 console 用于调试
+    drop: ['debugger', 'console']  // 移除 debugger 和 console
   }
 }))
 

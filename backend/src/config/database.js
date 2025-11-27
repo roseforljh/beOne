@@ -20,37 +20,22 @@ if (!fs.existsSync(dbDir)) {
 export const db = new sqlite3.Database(dbPath, sqlite3.OPEN_READWRITE | sqlite3.OPEN_CREATE, (err) => {
   if (err) {
     console.error('数据库连接失败:', err);
-  } else {
-    console.log('数据库连接成功');
-    
-    // 性能优化配置
-    db.configure('busyTimeout', 5000); // 设置繁忙超时
-    
-    // 启用 WAL 模式以提高并发性能
-    db.run('PRAGMA journal_mode = WAL', (err) => {
-      if (err) console.error('启用 WAL 模式失败:', err);
-    });
-    
-    // 优化同步模式
-    db.run('PRAGMA synchronous = NORMAL', (err) => {
-      if (err) console.error('设置同步模式失败:', err);
-    });
-    
-    // 增加缓存大小 (10MB)
-    db.run('PRAGMA cache_size = -10000', (err) => {
-      if (err) console.error('设置缓存大小失败:', err);
-    });
-    
-    // 启用内存映射 I/O (256MB)
-    db.run('PRAGMA mmap_size = 268435456', (err) => {
-      if (err) console.error('设置内存映射失败:', err);
-    });
-    
-    // 优化临时存储
-    db.run('PRAGMA temp_store = MEMORY', (err) => {
-      if (err) console.error('设置临时存储失败:', err);
-    });
+    return;
   }
+  
+  // 性能优化配置
+  db.configure('busyTimeout', 5000);
+  
+  // 启用 WAL 模式以提高并发性能
+  db.run('PRAGMA journal_mode = WAL');
+  // 优化同步模式
+  db.run('PRAGMA synchronous = NORMAL');
+  // 增加缓存大小 (10MB)
+  db.run('PRAGMA cache_size = -10000');
+  // 启用内存映射 I/O (256MB)
+  db.run('PRAGMA mmap_size = 268435456');
+  // 优化临时存储
+  db.run('PRAGMA temp_store = MEMORY');
 });
 
 // 初始化数据库表
@@ -67,18 +52,9 @@ export const initDatabase = async () => {
           expires_at DATETIME,
           created_at DATETIME DEFAULT CURRENT_TIMESTAMP
         )
-      `, (err) => {
-        if (err) console.error('创建用户表失败:', err);
-
-        // 尝试添加 is_guest 字段（如果表已存在但没有该字段）
-        db.run(`ALTER TABLE users ADD COLUMN is_guest INTEGER DEFAULT 0`, (err) => {
-          // 忽略错误（字段可能已存在）
-        });
-
-        // 尝试添加 expires_at 字段
-        db.run(`ALTER TABLE users ADD COLUMN expires_at DATETIME`, (err) => {
-          // 忽略错误（字段可能已存在）
-        });
+      `, () => {
+        db.run(`ALTER TABLE users ADD COLUMN is_guest INTEGER DEFAULT 0`, () => {});
+        db.run(`ALTER TABLE users ADD COLUMN expires_at DATETIME`, () => {});
       });
 
       // 创建文件表
@@ -97,13 +73,8 @@ export const initDatabase = async () => {
           updated_at DATETIME DEFAULT CURRENT_TIMESTAMP,
           FOREIGN KEY (user_id) REFERENCES users (id)
         )
-      `, (err) => {
-        if (err) console.error('创建文件表失败:', err);
-        
-        // 尝试添加 source 字段（如果表已存在但没有该字段）
-        db.run(`ALTER TABLE files ADD COLUMN source TEXT DEFAULT 'user'`, (err) => {
-          // 忽略错误（字段可能已存在）
-        });
+      `, () => {
+        db.run(`ALTER TABLE files ADD COLUMN source TEXT DEFAULT 'user'`, () => {});
       });
 
       // 创建分片表
@@ -115,9 +86,7 @@ export const initDatabase = async () => {
           chunk_path TEXT NOT NULL,
           created_at DATETIME DEFAULT CURRENT_TIMESTAMP
         )
-      `, (err) => {
-        if (err) console.error('创建分片表失败:', err);
-      });
+      `);
 
       // 创建会话表
       db.run(`
@@ -129,9 +98,7 @@ export const initDatabase = async () => {
           updated_at DATETIME DEFAULT CURRENT_TIMESTAMP,
           FOREIGN KEY (user_id) REFERENCES users (id)
         )
-      `, (err) => {
-        if (err) console.error('创建会话表失败:', err);
-      });
+      `);
 
       // 创建消息表
       db.run(`
@@ -148,24 +115,14 @@ export const initDatabase = async () => {
           FOREIGN KEY (conversation_id) REFERENCES conversations (id) ON DELETE CASCADE,
           FOREIGN KEY (file_id) REFERENCES files (id)
         )
-      `, (err) => {
-        if (err) console.error('创建消息表失败:', err);
-
-        // 尝试添加 session_id 字段（如果表已存在但没有该字段）
-        db.run(`ALTER TABLE messages ADD COLUMN session_id TEXT`, (err) => {
-          // 忽略错误（字段可能已存在）
-        });
-        
-        // 尝试添加 conversation_id 字段
-        db.run(`ALTER TABLE messages ADD COLUMN conversation_id INTEGER`, (err) => {
-          // 忽略错误（字段可能已存在）
-        });
+      `, () => {
+        db.run(`ALTER TABLE messages ADD COLUMN session_id TEXT`, () => {});
+        db.run(`ALTER TABLE messages ADD COLUMN conversation_id INTEGER`, () => {});
       });
 
       // 检查是否存在默认用户
       db.get('SELECT * FROM users WHERE username = ?', ['root'], async (err, row) => {
         if (err) {
-          console.error('查询用户失败:', err);
           reject(err);
           return;
         }
@@ -178,16 +135,13 @@ export const initDatabase = async () => {
             ['root', hashedPassword],
             (err) => {
               if (err) {
-                console.error('创建默认用户失败:', err);
                 reject(err);
               } else {
-                console.log('默认用户 root 创建成功（密码: 123456）');
                 resolve();
               }
             }
           );
         } else {
-          console.log('数据库初始化完成');
           resolve();
         }
       });
@@ -209,15 +163,11 @@ export const initDatabase = async () => {
       ];
       
       indexes.forEach(indexSql => {
-        db.run(indexSql, (err) => {
-          if (err) console.error('创建索引失败:', err);
-        });
+        db.run(indexSql, () => {});
       });
       
       // 分析表以优化查询计划
-      db.run('ANALYZE', (err) => {
-        if (err) console.error('分析表失败:', err);
-      });
+      db.run('ANALYZE');
 
       // 确保 uploads 目录存在
       const uploadsDir = path.join(__dirname, '../../uploads');

@@ -152,42 +152,30 @@ router.delete('/:id', (req, res) => {
         'SELECT m.file_id, f.* FROM messages m LEFT JOIN files f ON m.file_id = f.id WHERE m.conversation_id = ? AND m.file_id IS NOT NULL',
         [conversationId],
         (err, fileMessages) => {
-          if (err) {
-            console.error('查询会话文件失败:', err);
-            return;
-          }
+          if (err || !fileMessages || fileMessages.length === 0) return;
 
-          if (fileMessages && fileMessages.length > 0) {
-            // 后台异步处理文件删除
-            process.nextTick(async () => {
-              for (const file of fileMessages) {
-                if (file && file.source === 'chat') {
-                  try {
-                    // 删除物理文件
-                    if (file.path) {
-                      await fs.promises.unlink(file.path).catch(() => { });
-                    }
-
-                    // 删除缩略图
-                    if (file.filename) {
-                      const thumbPath = path.join(uploadsDir, 'thumbs', file.filename);
-                      await fs.promises.unlink(thumbPath).catch(() => { });
-
-                      const smallThumbPath = thumbPath.replace(path.extname(thumbPath), '_small' + path.extname(thumbPath));
-                      await fs.promises.unlink(smallThumbPath).catch(() => { });
-                    }
-
-                    // 删除文件记录
-                    db.run('DELETE FROM files WHERE id = ?', [file.id], (err) => {
-                      if (err) console.error('删除会话文件记录失败:', err);
-                    });
-                  } catch (e) {
-                    console.error('后台清理文件失败:', e);
-                  }
+          // 后台异步处理文件删除
+          setImmediate(async () => {
+            for (const file of fileMessages) {
+              if (file && file.source === 'chat') {
+                // 删除物理文件
+                if (file.path) {
+                  fs.promises.unlink(file.path).catch(() => {});
                 }
+
+                // 删除缩略图
+                if (file.filename) {
+                  const thumbPath = path.join(uploadsDir, 'thumbs', file.filename);
+                  fs.promises.unlink(thumbPath).catch(() => {});
+                  const smallThumbPath = thumbPath.replace(path.extname(thumbPath), '_small' + path.extname(thumbPath));
+                  fs.promises.unlink(smallThumbPath).catch(() => {});
+                }
+
+                // 删除文件记录
+                db.run('DELETE FROM files WHERE id = ?', [file.id], () => {});
               }
-            });
-          }
+            }
+          });
         }
       );
     }

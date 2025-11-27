@@ -49,16 +49,13 @@ const API_BASE_URL = getBaseUrl();
 // 创建 axios 实例
 const axiosInstance = axios.create({
   baseURL: API_BASE_URL,
-  timeout: 10000, // 10秒超时（移动端优化）
+  timeout: Capacitor.isNativePlatform() ? 30000 : 15000, // 移动端30秒，Web端15秒
   headers: {
     'Content-Type': 'application/json'
-    // 移除 'Connection': 'keep-alive' 因为这是不安全的头部，浏览器会拒绝设置
   },
-  // 移动端网络优化配置
   maxRedirects: 3,
-  maxContentLength: 50 * 1024 * 1024, // 50MB
+  maxContentLength: 50 * 1024 * 1024,
   maxBodyLength: 50 * 1024 * 1024,
-  // 移动端优化：快速失败
   validateStatus: (status) => status >= 200 && status < 500
 });
 
@@ -76,55 +73,22 @@ const CACHE_DURATION = Capacitor.isNativePlatform() ? 30000 : 5000; // 移动端
 // 请求拦截器
 axiosInstance.interceptors.request.use(
   (config) => {
-    // 添加 token（始终从 localStorage 获取最新的 token）
+    // 添加 token
     const token = localStorage.getItem('token');
     if (token) {
       config.headers.Authorization = `Bearer ${token}`;
     }
 
-    // 重要：不要覆盖 FormData 的 Content-Type
-    // FormData 需要浏览器自动设置 multipart/form-data 边界
+    // FormData 需要浏览器自动设置 Content-Type
     if (config.data instanceof FormData) {
-      // 删除默认的 Content-Type，让浏览器自动设置
       delete config.headers['Content-Type'];
-      console.log('[API Request] FormData请求，删除Content-Type头部');
     } else {
-      // 非 FormData 请求保持 JSON 格式
       config.headers['Content-Type'] = 'application/json';
     }
 
     // 移动端优化：添加压缩支持
     if (Capacitor.isNativePlatform()) {
       config.headers['Accept-Encoding'] = 'gzip, deflate';
-    }
-
-    // 添加时间戳防止缓存（仅 GET 请求）
-    if (config.method === 'get') {
-      config.params = {
-        ...config.params,
-        _t: Date.now()
-      };
-    }
-
-    // 调试日志：检查token是否正确传递
-    console.log('[API Request]', {
-      method: config.method?.toUpperCase(),
-      url: config.url,
-      baseURL: config.baseURL,
-      fullURL: `${config.baseURL || ''}${config.url || ''}`,
-      hasToken: !!token,
-      tokenPreview: token ? token.substring(0, 30) + '...' : 'none',
-      headers: {
-        ...config.headers,
-        Authorization: config.headers.Authorization ? config.headers.Authorization.substring(0, 40) + '...' : 'none'
-      }
-    });
-
-    // 登录和游客登录接口不需要 token
-    const isAuthRequest = config.url?.includes('/auth/login') || config.url?.includes('/auth/guest-login');
-
-    if (!token && !isAuthRequest) {
-      console.warn('[API] ⚠️ 没有找到 token，非认证请求可能会失败');
     }
 
     return config;
@@ -136,26 +100,9 @@ axiosInstance.interceptors.request.use(
 
 // 响应拦截器（添加重试机制）
 axiosInstance.interceptors.response.use(
-  (response) => {
-    return response;
-  },
+  (response) => response,
   async (error) => {
     const config = error.config;
-
-    // 403错误详细日志
-    if (error.response?.status === 403) {
-      console.error('[API] 403 Forbidden Error:', {
-        url: config.url,
-        method: config.method,
-        baseURL: config.baseURL,
-        fullURL: `${config.baseURL || ''}${config.url || ''}`,
-        headers: config.headers,
-        hasToken: !!config.headers.Authorization,
-        tokenPreview: config.headers.Authorization ? config.headers.Authorization.substring(0, 20) + '...' : 'none',
-        responseData: error.response.data,
-        requestTime: new Date().toISOString()
-      });
-    }
 
     // 网络错误重试机制（移动端优化）
     if (Capacitor.isNativePlatform() && !config._retry &&
@@ -163,20 +110,15 @@ axiosInstance.interceptors.response.use(
       config._retry = true;
       config._retryCount = config._retryCount || 0;
 
-      if (config._retryCount < 2) { // 最多重试2次
+      if (config._retryCount < 2) {
         config._retryCount += 1;
-        console.log(`请求重试 ${config._retryCount}/2:`, config.url);
-
-        // 指数退避：第一次等待500ms，第二次等待1000ms
         await new Promise(resolve => setTimeout(resolve, 500 * config._retryCount));
         return axiosInstance(config);
       }
     }
 
-    // 统一错误处理
+    // Token 过期处理
     if (error.response?.status === 401) {
-      // Token 过期，清除并跳转登录
-      console.warn('[API] Token expired, clearing and redirecting to login');
       localStorage.removeItem('token');
       localStorage.removeItem('user');
       window.location.href = '/login';
@@ -215,7 +157,6 @@ export const api = {
       // 1. 先查 LRU 内存缓存（最快）
       const lruCached = apiCache.get(cacheKey);
       if (lruCached) {
-        console.log('[LRU Cache HIT] files');
         return lruCached;
       }
 
@@ -223,12 +164,11 @@ export const api = {
       try {
         const dbCached = await dbCache.getCachedResponse(cacheKey);
         if (dbCached) {
-          console.log('[IndexedDB Cache HIT] files');
-          apiCache.set(cacheKey, dbCached); // 同步到 LRU
+          apiCache.set(cacheKey, dbCached);
           return dbCached;
         }
       } catch (err) {
-        console.warn('[IndexedDB] 读取失败:', err);
+        // 静默处理
       }
     }
 
@@ -237,13 +177,9 @@ export const api = {
     const files = response.data.files;
 
     if (useCache) {
-      // 缓存到 LRU 和 IndexedDB
       apiCache.set(cacheKey, files);
-      dbCache.cacheResponse(cacheKey, files, 60000).catch(err => {
-        console.warn('[IndexedDB] 写入失败:', err);
-      });
+      dbCache.cacheResponse(cacheKey, files, 60000).catch(() => {});
 
-      // 更新布隆过滤器
       files.forEach(file => {
         fileExistsFilter.add(file.id);
       });
@@ -267,25 +203,18 @@ export const api = {
   async toggleVisibility(fileId) {
     const response = await axiosInstance.patch(`/api/files/${fileId}/visibility`);
 
-    // 清除所有缓存，确保可见性更新立即生效
-    console.log('[API] 清除文件缓存，更新可见性，文件ID:', fileId);
-
-    // 清除内存缓存
+    // 清除缓存
     requestCache.delete('files');
     requestCache.delete('public-files');
     requestCache.delete('files_list');
-
-    // 清除 LRU 缓存
     apiCache.delete('files_list');
     apiCache.delete('public-files');
 
-    // 清除 IndexedDB 缓存
     try {
       await dbCache.deleteCachedResponse('files_list');
       await dbCache.deleteCachedResponse('public-files');
-      console.log('[API] IndexedDB 缓存已清除（可见性更新）');
     } catch (err) {
-      console.warn('[IndexedDB] 删除缓存失败:', err);
+      // 静默处理
     }
 
     return response.data;
@@ -294,33 +223,21 @@ export const api = {
   async deleteFile(fileId) {
     const response = await axiosInstance.delete(`/api/files/${fileId}`);
 
-    // 强制清除所有缓存，确保删除操作立即生效
-    console.log('[API] 清除所有文件缓存，删除文件ID:', fileId);
-
-    // 清除内存缓存
+    // 清除缓存
     requestCache.delete('files');
     requestCache.delete('public-files');
     requestCache.delete('files_list');
-
-    // 清除 LRU 缓存
     apiCache.delete('files_list');
     apiCache.delete('public-files');
 
-    // 清除 IndexedDB 缓存
     try {
       await dbCache.deleteCachedResponse('files_list');
       await dbCache.deleteCachedResponse('public-files');
-      console.log('[API] IndexedDB 缓存已清除');
     } catch (err) {
-      console.warn('[IndexedDB] 删除缓存失败:', err);
+      // 静默处理
     }
 
-    // 清空布隆过滤器（因为布隆过滤器不支持精确删除）
     fileExistsFilter.clear();
-
-    // 强制刷新页面缓存，确保下次 loadFiles 不使用缓存
-    const now = Date.now();
-    console.log('[API] 文件删除完成，时间戳:', now);
 
     return response.data;
   },
@@ -353,13 +270,10 @@ export const api = {
   clearCache() {
     requestCache.clear();
     apiCache.clear();
-    // 清除 IndexedDB 缓存
     try {
-      dbCache.clear().catch(err => {
-        console.warn('[IndexedDB] 清空缓存失败:', err);
-      });
+      dbCache.clear().catch(() => {});
     } catch (err) {
-      console.warn('[IndexedDB] 清空缓存失败:', err);
+      // 静默处理
     }
   }
 };

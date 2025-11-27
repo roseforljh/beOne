@@ -17,7 +17,7 @@ export const AuthProvider = ({ children }) => {
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
-    // 从 localStorage 恢复登录状态（健壮性：防止 JSON.parse('undefined')/'null' 触发白屏）
+    // 从 localStorage 恢复登录状态
     try {
       const savedToken = localStorage.getItem('token');
       const savedUser = localStorage.getItem('user');
@@ -29,23 +29,17 @@ export const AuthProvider = ({ children }) => {
   
       if (savedToken && savedUser && !isCorrupt) {
         setToken(savedToken);
-        // 仅在明确是有效 JSON 时再解析
         setUser(JSON.parse(savedUser));
-        // 设置 axios 默认 header（统一使用 axiosInstance）
         axios.defaults.headers.common['Authorization'] = `Bearer ${savedToken}`;
         
-        // 确保在HTTPS环境下也能正确设置cookie相关属性
         if (window.location.protocol === 'https:') {
           document.cookie = `token=${savedToken}; path=/; secure; samesite=strict`;
         }
       } else {
-        // 发现损坏或占位字符串，立即清理，避免后续解析
         localStorage.removeItem('token');
         localStorage.removeItem('user');
       }
-    } catch (error) {
-      console.error('恢复登录状态失败:', error);
-      // 清除可能损坏的数据
+    } catch {
       localStorage.removeItem('token');
       localStorage.removeItem('user');
     } finally {

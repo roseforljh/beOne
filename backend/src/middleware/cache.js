@@ -17,7 +17,6 @@ export const cacheMiddleware = (duration = CACHE_DURATION) => {
     const cached = cache.get(key);
 
     if (cached && Date.now() - cached.timestamp < duration) {
-      console.log(`[Cache HIT] ${key}`);
       return res.json(cached.data);
     }
 
@@ -30,12 +29,9 @@ export const cacheMiddleware = (duration = CACHE_DURATION) => {
         timestamp: Date.now()
       });
 
-      console.log(`[Cache SET] ${key}`);
-
       // 设置过期清理
       setTimeout(() => {
         cache.delete(key);
-        console.log(`[Cache DEL] ${key}`);
       }, duration);
 
       return originalJson(data);
@@ -49,23 +45,18 @@ export const cacheMiddleware = (duration = CACHE_DURATION) => {
  * 清除特定路径的缓存
  */
 export const clearCache = (pattern) => {
-  let count = 0;
   for (const key of cache.keys()) {
     if (key.includes(pattern)) {
       cache.delete(key);
-      count++;
     }
   }
-  console.log(`[Cache] 清除了 ${count} 个缓存项 (pattern: ${pattern})`);
 };
 
 /**
  * 清除所有缓存
  */
 export const clearAllCache = () => {
-  const size = cache.size;
   cache.clear();
-  console.log(`[Cache] 清除了所有 ${size} 个缓存项`);
 };
 
 /**

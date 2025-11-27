@@ -86,43 +86,26 @@ router.get('/', authenticateToken, (req, res) => {
 // 预览文件（在浏览器中打开，不强制下载）
 router.get('/:id/preview', (req, res) => {
   const fileId = parseInt(req.params.id);
-  
-  console.log('=== 预览请求 ===');
-  console.log('文件ID:', fileId);
-  console.log('查询参数:', req.query);
-  console.log('Headers Authorization:', req.headers['authorization']);
 
   db.get('SELECT * FROM files WHERE id = ?', [fileId], (err, file) => {
     if (err) {
-      console.error('数据库查询错误:', err);
       return res.status(500).json({ error: '数据库查询失败' });
     }
     
     if (!file) {
-      console.error('文件不存在，ID:', fileId);
-      // 列出所有文件ID帮助调试
-      db.all('SELECT id, original_name FROM files', [], (err, allFiles) => {
-        console.log('数据库中的所有文件:', allFiles);
-      });
       return res.status(404).json({ error: '文件不存在' });
     }
-    
-    console.log('找到文件:', file.original_name, 'mimetype:', file.mimetype);
 
     // 检查权限
     if (!checkFileAccess(file, req)) {
-      console.error('无权访问文件:', fileId, 'is_public:', file.is_public);
       return res.status(403).json({ error: '无权访问此文件' });
     }
 
     const filePath = file.path;
 
     if (!fs.existsSync(filePath)) {
-      console.error('文件物理路径不存在:', filePath);
       return res.status(404).json({ error: '文件物理文件不存在' });
     }
-
-    console.log('预览文件:', file.original_name, 'mimetype:', file.mimetype);
 
     // 设置正确的Content-Type，不强制下载
     res.setHeader('Content-Type', file.mimetype || 'application/octet-stream');
@@ -130,8 +113,7 @@ router.get('/:id/preview', (req, res) => {
     
     // 发送文件流
     const fileStream = fs.createReadStream(filePath);
-    fileStream.on('error', (error) => {
-      console.error('文件流错误:', error);
+    fileStream.on('error', () => {
       res.status(500).json({ error: '读取文件失败' });
     });
     fileStream.pipe(res);
@@ -158,7 +140,6 @@ router.get('/:id/download', (req, res) => {
       return res.status(404).json({ error: '文件物理文件不存在' });
     }
 
-    console.log('下载文件:', file.original_name);
     res.download(filePath, file.original_name);
   });
 });
@@ -212,17 +193,13 @@ router.patch('/:id/visibility', authenticateToken, (req, res) => {
           return res.status(500).json({ error: '更新失败' });
         }
 
-        // 广播文件更新事件到该用户的所有会话
+        // 广播文件更新事件
         const io = req.app.get('io');
         if (io) {
-          const roomName = `user_${userId}`;
-          console.log('广播文件更新事件到房间:', roomName, '文件ID:', fileId, '可见性:', newVisibility);
-          io.to(roomName).emit('file_updated', {
+          io.to(`user_${userId}`).emit('file_updated', {
             id: parseInt(fileId),
             is_public: newVisibility
           });
-        } else {
-          console.error('io 实例不存在，无法广播文件更新事件');
         }
 
         res.json({ success: true, is_public: newVisibility });
@@ -241,37 +218,30 @@ router.delete('/:id', authenticateToken, (req, res) => {
       return res.status(404).json({ error: '文件不存在' });
     }
 
-    // 删除物理文件
-    if (fs.existsSync(file.path)) {
-      fs.unlinkSync(file.path);
-    }
+    // 先响应客户端
+    res.json({ success: true });
 
-    // 删除缩略图
-    const thumbPath = path.join(uploadsDir, 'thumbs', file.filename);
-    if (fs.existsSync(thumbPath)) {
-      fs.unlinkSync(thumbPath);
-    }
+    // 异步删除物理文件
+    setImmediate(() => {
+      if (fs.existsSync(file.path)) {
+        fs.unlink(file.path, () => {});
+      }
+
+      // 删除缩略图
+      const thumbPath = path.join(uploadsDir, 'thumbs', file.filename);
+      if (fs.existsSync(thumbPath)) {
+        fs.unlink(thumbPath, () => {});
+      }
+    });
 
     // 删除数据库记录
-    db.run('DELETE FROM files WHERE id = ?', [fileId], (err) => {
-      if (err) {
-        return res.status(500).json({ error: '删除失败' });
-      }
+    db.run('DELETE FROM files WHERE id = ?', [fileId], () => {});
 
-      // 广播文件删除事件到该用户的所有会话
-      const io = req.app.get('io');
-      if (io) {
-        const roomName = `user_${userId}`;
-        console.log('广播文件删除事件到房间:', roomName, '文件ID:', fileId);
-        io.to(roomName).emit('file_deleted', {
-          id: parseInt(fileId)
-        });
-      } else {
-        console.error('io 实例不存在，无法广播文件删除事件');
-      }
-
-      res.json({ success: true });
-    });
+    // 广播文件删除事件
+    const io = req.app.get('io');
+    if (io) {
+      io.to(`user_${userId}`).emit('file_deleted', { id: parseInt(fileId) });
+    }
   });
 });
 

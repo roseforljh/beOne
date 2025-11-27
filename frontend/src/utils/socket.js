@@ -41,75 +41,41 @@ export const connectSocket = (token) => {
   };
 
   const socketUrl = getSocketUrl();
-
-  console.log('Socket连接地址:', socketUrl);
-
-  // 检查是否为HTTPS环境
   const isSecureEnvironment = window.location.protocol === 'https:';
-  
-  // 确保token格式正确
   const formattedToken = token && token.startsWith('Bearer ') ? token.substring(7) : token;
   
   socket = io(socketUrl, {
     auth: { token: formattedToken },
-    // 移动端优化：优先使用 WebSocket，减少 polling 延迟
+    // 移动端优化：优先使用 WebSocket
     transports: Capacitor.isNativePlatform() ? ['websocket'] : ['websocket', 'polling'],
     reconnection: true,
-    reconnectionDelay: 500, // 减少重连延迟（移动端优化）
-    reconnectionDelayMax: 3000, // 减少最大重连延迟
-    reconnectionAttempts: 5, // 减少重连次数，快速失败
-    timeout: 20000, // 增加超时时间，避免与后端 pingTimeout 不匹配
-    // 性能优化配置
+    reconnectionDelay: 500,
+    reconnectionDelayMax: 3000,
+    reconnectionAttempts: 5,
+    timeout: 20000,
     upgrade: true,
     rememberUpgrade: true,
     perMessageDeflate: {
-      threshold: 1024 // 只压缩大于1KB的消息
+      threshold: 1024
     },
-    // 移动端网络优化
     forceNew: false,
     multiplex: true,
-    // 启用二进制传输优化
     enablesXDR: false,
-    // 心跳配置 - 与后端保持一致
     pingInterval: 25000,
-    pingTimeout: 60000, // 与后端的 pingTimeout 保持一致
-    // HTTPS环境下的特殊配置
+    pingTimeout: 60000,
     secure: isSecureEnvironment,
-    rejectUnauthorized: false, // 在生产环境中应该为true，但为了调试暂时设为false
-    // 确保在HTTPS环境下正确传递认证信息
+    rejectUnauthorized: false,
     extraHeaders: isSecureEnvironment ? {
       'Authorization': `Bearer ${formattedToken}`
     } : {}
   });
 
   socket.on('connect', () => {
-    console.log('Socket 连接成功');
     startHeartbeat();
   });
 
-  socket.on('connect_error', (error) => {
-    console.error('Socket 连接错误:', error.message);
-  });
-
-  socket.on('disconnect', (reason) => {
-    console.log('Socket 断开连接:', reason);
+  socket.on('disconnect', () => {
     stopHeartbeat();
-  });
-
-  socket.on('reconnect', (attemptNumber) => {
-    console.log('Socket 重连成功，尝试次数:', attemptNumber);
-  });
-
-  socket.on('reconnect_attempt', (attemptNumber) => {
-    console.log('Socket 尝试重连:', attemptNumber);
-  });
-
-  socket.on('reconnect_error', (error) => {
-    console.error('Socket 重连错误:', error.message);
-  });
-
-  socket.on('reconnect_failed', () => {
-    console.error('Socket 重连失败');
   });
 
   return socket;
@@ -212,10 +178,7 @@ export const emitStopTyping = () => {
 
 export const recallMessage = (messageId) => {
   if (socket?.connected) {
-    console.log('发送撤回请求，消息ID:', messageId);
     socket.emit('recall_message', { messageId });
-  } else {
-    console.error('Socket 未连接，无法撤回消息');
   }
 };
 

@@ -1,11 +1,16 @@
 import { BrowserRouter, Routes, Route, Navigate } from 'react-router-dom';
-import { lazy, Suspense, useEffect } from 'react';
+import { lazy, Suspense, useEffect, memo } from 'react';
 import { Capacitor } from '@capacitor/core';
-import { StatusBar, Style } from '@capacitor/status-bar';
-import { Keyboard, KeyboardResize } from '@capacitor/keyboard';
 import { AuthProvider, useAuth } from './contexts/AuthContext';
-import LoadingSpinner from './components/LoadingSpinner';
 import ErrorBoundary from './components/ErrorBoundary';
+
+// 轻量级加载占位符（避免导入重型组件）
+const MinimalLoader = memo(() => (
+  <div className="flex items-center justify-center min-h-screen bg-taiji-gray-100">
+    <div className="w-12 h-12 border-4 border-taiji-black border-t-transparent rounded-full animate-spin" />
+  </div>
+));
+MinimalLoader.displayName = 'MinimalLoader';
 
 // 路由懒加载 - 按需加载页面组件
 const Login = lazy(() => import('./pages/Login'));
@@ -13,6 +18,21 @@ const Home = lazy(() => import('./pages/Home'));
 const Chat = lazy(() => import('./pages/Chat'));
 const Public = lazy(() => import('./pages/Public'));
 const Settings = lazy(() => import('./pages/Settings'));
+
+// 预加载关键页面（在空闲时）
+const preloadPages = () => {
+  if (typeof requestIdleCallback !== 'undefined') {
+    requestIdleCallback(() => {
+      import('./pages/Login');
+      import('./pages/Home');
+    });
+  } else {
+    setTimeout(() => {
+      import('./pages/Login');
+      import('./pages/Home');
+    }, 1000);
+  }
+};
 
 // 根路径重定向组件
 function RootRedirect() {
@@ -61,19 +81,23 @@ function LoginRoute({ children }) {
 }
 
 function App() {
-  // 设置状态栏样式
+  // 设置状态栏样式和预加载
   useEffect(() => {
+    // 预加载关键页面
+    preloadPages();
+    
+    // 移动端特殊配置
     if (Capacitor.isNativePlatform()) {
-      // 设置状态栏为深色内容(黑色文字),适配浅色背景
-      StatusBar.setStyle({ style: Style.Light });
-      // 设置状态栏背景色为白色
-      StatusBar.setBackgroundColor({ color: '#FFFFFF' });
-      
-      // 使用原生 Resize 模式，让 WebView 高度随键盘调整，避免整页被平移
-      Keyboard.setResizeMode({ mode: KeyboardResize.Native });
-      
-      // 禁止键盘弹出时自动滚动 WebView，防止顶栏被顶出屏幕
-      Keyboard.setScroll({ isDisabled: true });
+      // 动态导入 Capacitor 插件，避免阻塞首屏
+      Promise.all([
+        import('@capacitor/status-bar'),
+        import('@capacitor/keyboard')
+      ]).then(([{ StatusBar, Style }, { Keyboard, KeyboardResize }]) => {
+        StatusBar.setStyle({ style: Style.Light });
+        StatusBar.setBackgroundColor({ color: '#FFFFFF' });
+        Keyboard.setResizeMode({ mode: KeyboardResize.Native });
+        Keyboard.setScroll({ isDisabled: true });
+      }).catch(() => {});
     }
   }, []);
 
@@ -81,7 +105,7 @@ function App() {
     <ErrorBoundary>
       <BrowserRouter>
         <AuthProvider>
-          <Suspense fallback={<LoadingSpinner message="加载中..." />}>
+          <Suspense fallback={<MinimalLoader />}>
             <Routes>
             {/* 根路径根据平台重定向 */}
             <Route path="/" element={<RootRedirect />} />
