@@ -15,7 +15,12 @@ import messagesRoutes from './routes/messages.js';
 import userRoutes from './routes/user.js';
 import conversationsRoutes from './routes/conversations.js';
 
-dotenv.config();
+// 优先加载开发环境配置
+if (process.env.NODE_ENV === 'development') {
+  dotenv.config({ path: '.env.development' });
+} else {
+  dotenv.config();
+}
 
 const app = express();
 const httpServer = createServer(app);

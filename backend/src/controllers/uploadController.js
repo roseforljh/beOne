@@ -171,13 +171,15 @@ export const completeUpload = async (req, res) => {
         });
 
         // 广播文件上传完成事件到该用户的所有会话
+        // 注意：在某些情况下 req.app 可能丢失，尝试从 global 或者其他方式获取 io
+        // 这里我们假设 req.app.get('io') 是可靠的，因为我们在 index.js 中设置了它
         const io = req.app.get('io');
         if (io) {
           const roomName = `user_${userId}`;
           console.log('广播文件上传事件到房间:', roomName, '文件:', newFile.original_name);
           io.to(roomName).emit('file_uploaded', newFile);
         } else {
-          console.error('io 实例不存在，无法广播文件上传事件');
+          console.error('io 实例不存在，无法广播文件上传事件 (req.app.get("io") failed)');
         }
 
         // 异步生成缩略图（不阻塞响应）

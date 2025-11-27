@@ -34,6 +34,7 @@ export class FileUploader {
     this.maxRetries = 3;
     this.lastReportedProgress = 0;
     this.progressUpdateTimer = null;
+    this.isFinished = false;
   }
 
   abort() {
@@ -43,7 +44,7 @@ export class FileUploader {
       source.cancel('上传已取消');
     });
     this.cancelTokenSources.clear();
-    
+
     // 清理定时器
     if (this.progressUpdateTimer) {
       clearInterval(this.progressUpdateTimer);
@@ -56,28 +57,29 @@ export class FileUploader {
   }
 
   async upload() {
+    if (this.isFinished) return { success: false, error: 'Upload already finished' };
     try {
       console.log(`[上传开始] 文件: ${this.file.name}, 大小: ${(this.file.size / 1024 / 1024).toFixed(2)}MB, 分片数: ${this.totalChunks}`);
       const uploadStartTime = Date.now();
-      
+
       this.startTime = Date.now();
       this.lastUpdateTime = this.startTime;
-      
+
       // 小文件直接上传，不分片
       if (this.file.size < SMALL_FILE_THRESHOLD) {
         console.log('[快速模式] 小文件直接上传，不分片');
         return await this.uploadDirectly();
       }
-      
+
       // 安卓端：启动定时器强制更新进度
       if (Capacitor.isNativePlatform()) {
         this.startProgressTimer();
       }
-      
+
       // 1. 初始化上传（统一走 axiosInstance，原生端使用后端 IP 而非 http://localhost）
       console.log('[步骤1] 开始初始化上传...');
       console.log('[步骤1] API baseURL:', api.defaults.baseURL);
-      
+
       // 移动端特殊处理：确保使用正确的API地址
       let apiUrl = api.defaults.baseURL;
       if (Capacitor.isNativePlatform()) {
@@ -87,7 +89,7 @@ export class FileUploader {
           apiUrl = savedApiUrl;
         }
       }
-      
+
       const initStartTime = Date.now();
       const initResponse = await api.post('/api/upload/init', {
         filename: this.file.name,
@@ -113,9 +115,9 @@ export class FileUploader {
       // 3. 完成上传（统一走 axiosInstance）
       console.log('[步骤3] 开始完成上传...');
       console.log('[步骤3] API baseURL:', api.defaults.baseURL);
-      
+
       apiUrl = api.defaults.baseURL;
-      
+
       // 移动端特殊处理：确保使用正确的API地址
       if (Capacitor.isNativePlatform()) {
         const savedApiUrl = localStorage.getItem('apiUrl');
@@ -124,9 +126,9 @@ export class FileUploader {
           apiUrl = savedApiUrl;
         }
       }
-      
+
       const completeStartTime = Date.now();
-      const completeResponse = await api.post('/api/upload/init', {
+      const completeResponse = await api.post('/api/upload/complete', {
         uploadId: this.uploadId,
         filename: this.file.name,
         totalChunks: this.totalChunks,
@@ -141,6 +143,9 @@ export class FileUploader {
         this.progressUpdateTimer = null;
       }
 
+      // 标记为完成，防止后续的进度更新
+      this.isFinished = true;
+
       // 上传完成，设置为 100%
       if (this.onProgress) {
         this.onProgress(100);
@@ -149,17 +154,26 @@ export class FileUploader {
       const totalTime = Date.now() - uploadStartTime;
       console.log(`[上传完成] 总耗时: ${totalTime}ms (${(totalTime / 1000).toFixed(2)}s)`);
 
+      if (!completeResponse.data || !completeResponse.data.file) {
+        console.error('[上传异常] 服务器响应缺少文件信息:', completeResponse.data);
+        return {
+          success: false,
+          error: '服务器响应格式错误'
+        };
+      }
+
       return {
         success: true,
         file: completeResponse.data.file
       };
     } catch (error) {
+      this.isFinished = true;
       // 清理定时器
       if (this.progressUpdateTimer) {
         clearInterval(this.progressUpdateTimer);
         this.progressUpdateTimer = null;
       }
-      
+
       if (this.aborted || error.message === '上传已取消') {
         return {
           success: false,
@@ -178,10 +192,10 @@ export class FileUploader {
   // 小文件直接上传（不分片）
   async uploadDirectly() {
     const uploadStartTime = Date.now();
-    
+
     try {
       console.log('[直接上传] 准备FormData，文件:', this.file.name, '大小:', this.file.size);
-      
+
       const formData = new FormData();
       formData.append('file', this.file);
       formData.append('filename', this.file.name);
@@ -196,7 +210,7 @@ export class FileUploader {
         source: this.source,
         fileSize: this.file.size
       });
-      
+
       const response = await api.post('/api/upload/direct', formData, {
         // 注意：不要手动设置 Content-Type，让浏览器自动设置 multipart/form-data 边界
         timeout: Capacitor.isNativePlatform() ? 60000 : 30000,
@@ -204,15 +218,17 @@ export class FileUploader {
           if (this.aborted) {
             return;
           }
-          
+
           const progress = (progressEvent.loaded / progressEvent.total) * 100;
           if (this.onProgress) {
             this.onProgress(Math.min(progress, 99));
           }
-          
+
           console.log(`[直接上传] 上传进度: ${progress.toFixed(2)}% (${progressEvent.loaded}/${progressEvent.total} bytes)`);
         }
       });
+
+      this.isFinished = true;
 
       // 上传完成
       if (this.onProgress) {
@@ -222,11 +238,19 @@ export class FileUploader {
       const totalTime = Date.now() - uploadStartTime;
       console.log(`[直接上传完成] 总耗时: ${totalTime}ms (${(totalTime / 1000).toFixed(2)}s)`);
 
+      if (!response.data || !response.data.file) {
+        return {
+          success: false,
+          error: '服务器响应格式错误'
+        };
+      }
+
       return {
         success: true,
         file: response.data.file
       };
     } catch (error) {
+      this.isFinished = true;
       if (this.aborted) {
         console.log('[直接上传] 用户取消上传');
         return {
@@ -235,7 +259,7 @@ export class FileUploader {
           error: '上传已取消'
         };
       }
-      
+
       console.error('[直接上传失败]', {
         message: error.message,
         name: error.name,
@@ -252,24 +276,24 @@ export class FileUploader {
           headers: error.config.headers
         } : null
       });
-      
+
       // 移动端特殊错误处理
       if (Capacitor.isNativePlatform()) {
         console.error('[移动端直接上传] 详细错误:', error);
-        
+
         // 尝试获取更详细的错误信息
         if (error.response) {
           console.error('[移动端直接上传] 响应状态:', error.response.status);
           console.error('[移动端直接上传] 响应数据:', error.response.data);
         }
-        
+
         // 检查网络连接状态
         console.log('[移动端直接上传] 网络状态:', navigator.onLine ? navigator.onLine() : '未知');
-        
+
         // 检查存储权限
         console.log('[移动端直接上传] 存储权限:', navigator.storage && navigator.storage.persisted ? '可用' : '不可用');
       }
-      
+
       return {
         success: false,
         error: error.response?.data?.error || error.message || '上传失败'
@@ -307,7 +331,7 @@ export class FileUploader {
     );
 
     await Promise.all(initialUploads);
-    
+
     // 等待所有上传完成
     while (activeUploads.size > 0) {
       await Promise.race(activeUploads);
@@ -358,7 +382,7 @@ export class FileUploader {
 
     try {
       console.log(`[分片${index}] 开始上传 (${(chunk.size / 1024).toFixed(2)}KB)`);
-      
+
       // 分片上传（统一走 axiosInstance），CancelToken 继续沿用 axios 的静态属性
       await api.post('/api/upload/chunk', formData, {
         headers: {
@@ -380,11 +404,11 @@ export class FileUploader {
 
       const chunkTime = Date.now() - chunkStartTime;
       console.log(`[分片${index}] 上传完成，耗时: ${chunkTime}ms`);
-      
+
       // 标记为已上传
       this.uploadedChunks.add(index);
       this.cancelTokenSources.delete(index);
-      
+
       // 分片完成后也更新一次进度，确保UI同步
       this.updateProgress(index, chunk.size, chunk.size);
     } catch (error) {
@@ -397,15 +421,15 @@ export class FileUploader {
   // 安卓端：定时器强制更新进度
   startProgressTimer() {
     this.progressUpdateTimer = setInterval(() => {
-      if (this.aborted) {
+      if (this.aborted || this.isFinished) {
         clearInterval(this.progressUpdateTimer);
         return;
       }
-      
+
       const completedChunks = this.uploadedChunks.size;
       const totalProgress = (completedChunks / this.totalChunks) * 100;
       const clampedProgress = Math.min(Math.max(0, totalProgress), 99);
-      
+
       // 只有进度变化时才更新
       if (Math.abs(clampedProgress - this.lastReportedProgress) >= 1) {
         console.log(`[定时器] 强制更新进度: ${clampedProgress.toFixed(2)}%`);
@@ -418,6 +442,8 @@ export class FileUploader {
   }
 
   updateProgress(chunkIndex, chunkLoaded, chunkSize) {
+    if (this.isFinished || this.aborted) return;
+
     // 计算总进度
     const completedChunks = this.uploadedChunks.size;
     const currentChunkProgress = chunkLoaded / chunkSize;
@@ -444,7 +470,7 @@ export class FileUploader {
     // 立即更新进度
     if (this.onProgress) {
       const clampedProgress = Math.min(Math.max(0, totalProgress), 99);
-      
+
       // 安卓端：降低更新阈值，从1%改为0.5%，让进度更平滑
       if (Capacitor.isNativePlatform()) {
         if (Math.abs(clampedProgress - this.lastReportedProgress) >= 0.5) {
@@ -463,17 +489,17 @@ export class FileUploader {
 
 export const formatFileSize = (bytes) => {
   if (bytes === 0) return '0 B';
-  
+
   const k = 1024;
   const sizes = ['B', 'KB', 'MB', 'GB', 'TB'];
   const i = Math.floor(Math.log(bytes) / Math.log(k));
-  
+
   return Math.round(bytes / Math.pow(k, i) * 100) / 100 + ' ' + sizes[i];
 };
 
 export const getFileIcon = (mimetype) => {
   if (!mimetype) return '📄';
-  
+
   if (mimetype.startsWith('image/')) return '🖼️';
   if (mimetype.startsWith('video/')) return '🎬';
   if (mimetype.startsWith('audio/')) return '🎵';
@@ -483,7 +509,7 @@ export const getFileIcon = (mimetype) => {
   if (mimetype.includes('powerpoint') || mimetype.includes('presentation')) return '📙';
   if (mimetype.includes('zip') || mimetype.includes('rar') || mimetype.includes('7z')) return '📦';
   if (mimetype.includes('text')) return '📝';
-  
+
   return '📄';
 };
 

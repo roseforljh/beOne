@@ -8,6 +8,7 @@
     "start": "node deploy-simple.js",
     "install:all": "cd backend && npm install && cd ../frontend && npm install",
     "start:backend": "cd backend && npm start",
+    "start:debug": "cd backend && npm run start:debug",
     "start:frontend": "cd frontend && npm run dev",
     "build:frontend": "cd frontend && npm run build"
   },
