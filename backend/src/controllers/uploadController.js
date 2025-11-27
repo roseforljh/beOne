@@ -28,9 +28,7 @@ const cleanupOldChunks = () => {
         if (err) return;
 
         if (now - stats.mtimeMs > ONE_DAY) {
-          fs.unlink(filePath, (err) => {
-            if (!err) console.log('已清理过期分片:', file);
-          });
+          fs.unlink(filePath, () => {});
         }
       });
     });
@@ -83,11 +81,7 @@ export const uploadChunk = (req, res) => {
     db.run(
       'INSERT INTO chunks (upload_id, chunk_index, chunk_path) VALUES (?, ?, ?)',
       [uploadId, chunkIndex, chunkPath],
-      (err) => {
-        if (err) {
-          console.error('保存分片记录失败:', err);
-        }
-      }
+      () => {} // 静默处理错误
     );
   });
 };
@@ -171,56 +165,43 @@ export const completeUpload = async (req, res) => {
         });
 
         // 广播文件上传完成事件到该用户的所有会话
-        // 注意：在某些情况下 req.app 可能丢失，尝试从 global 或者其他方式获取 io
-        // 这里我们假设 req.app.get('io') 是可靠的，因为我们在 index.js 中设置了它
         const io = req.app.get('io');
         if (io) {
           const roomName = `user_${userId}`;
-          console.log('广播文件上传事件到房间:', roomName, '文件:', newFile.original_name);
           io.to(roomName).emit('file_uploaded', newFile);
-        } else {
-          console.error('io 实例不存在，无法广播文件上传事件 (req.app.get("io") failed)');
         }
 
         // 异步生成缩略图（不阻塞响应）
         if (mimetype && mimetype.startsWith('image/')) {
           const thumbPath = path.join(thumbsDir, uniqueFilename);
 
-          // 使用 setImmediate 确保在下一个事件循环中执行
           setImmediate(async () => {
             try {
               await Promise.all([
-                // 标准缩略图 300x300
                 sharp(finalPath)
                   .resize(300, 300, { fit: 'inside' })
                   .jpeg({ quality: 80, progressive: true })
                   .toFile(thumbPath),
 
-                // 小预览图 100x100
                 sharp(finalPath)
                   .resize(100, 100, { fit: 'cover' })
                   .jpeg({ quality: 70, progressive: true })
                   .toFile(thumbPath.replace(path.extname(thumbPath), '_small' + path.extname(thumbPath)))
               ]);
-
-              console.log('缩略图生成完成（异步后台处理）');
             } catch (thumbErr) {
-              console.error('生成缩略图失败:', thumbErr);
+              // 静默处理缩略图生成错误
             }
           });
         }
       }
     );
   } catch (error) {
-    console.error('合并文件失败:', error);
-
     // 清理可能生成的损坏文件
     if (finalPath && fs.existsSync(finalPath)) {
       try {
         fs.unlinkSync(finalPath);
-        console.log('已清理损坏的文件:', finalPath);
       } catch (cleanupErr) {
-        console.error('清理损坏文件失败:', cleanupErr);
+        // 静默处理清理错误
       }
     }
 
@@ -230,30 +211,12 @@ export const completeUpload = async (req, res) => {
 
 // 直接上传（小文件，不分片）
 export const directUpload = async (req, res) => {
-  console.log('[直接上传] 开始处理请求');
-
   try {
     const userId = req.user.id;
     const file = req.file;
     const { filename, mimetype, source } = req.body;
 
-    console.log('[直接上传] 请求详情:', {
-      userId,
-      hasFile: !!file,
-      filename,
-      mimetype,
-      source,
-      fileDetails: file ? {
-        originalname: file.originalname,
-        filename: file.filename,
-        size: file.size,
-        mimetype: file.mimetype,
-        path: file.path
-      } : null
-    });
-
     if (!file) {
-      console.log('[直接上传] 错误: 没有上传文件');
       return res.status(400).json({ error: '没有上传文件' });
     }
 
@@ -266,16 +229,6 @@ export const directUpload = async (req, res) => {
     const originalName = filename || file.originalname;
     const fileMimetype = mimetype || file.mimetype || 'application/octet-stream';
 
-    console.log('[直接上传] 准备保存到数据库:', {
-      uniqueFilename,
-      originalName,
-      fileMimetype,
-      fileSize,
-      finalPath,
-      userId,
-      fileSource
-    });
-
     // 保存文件信息到数据库
     db.run(
       `INSERT INTO files (filename, original_name, mimetype, size, path, user_id, is_public, source)
@@ -283,14 +236,8 @@ export const directUpload = async (req, res) => {
       [uniqueFilename, originalName, fileMimetype, fileSize, finalPath, userId, fileSource],
       function (err) {
         if (err) {
-          console.error('[直接上传] 保存文件记录失败:', err);
-          return res.status(500).json({
-            error: '保存文件记录失败',
-            details: err.message
-          });
+          return res.status(500).json({ error: '保存文件记录失败' });
         }
-
-        console.log('[直接上传] 数据库保存成功，文件ID:', this.lastID);
 
         const newFile = {
           id: this.lastID,
@@ -312,10 +259,7 @@ export const directUpload = async (req, res) => {
         const io = req.app.get('io');
         if (io) {
           const roomName = `user_${userId}`;
-          console.log('[直接上传] 广播文件上传事件到房间:', roomName, '文件:', newFile.original_name);
           io.to(roomName).emit('file_uploaded', newFile);
-        } else {
-          console.error('[直接上传] io 实例不存在，无法广播文件上传事件');
         }
 
         // 异步生成缩略图（不阻塞响应）
@@ -335,25 +279,15 @@ export const directUpload = async (req, res) => {
                   .jpeg({ quality: 70, progressive: true })
                   .toFile(thumbPath.replace(path.extname(thumbPath), '_small' + path.extname(thumbPath)))
               ]);
-
-              console.log('[直接上传] 缩略图生成完成');
             } catch (thumbErr) {
-              console.error('[直接上传] 生成缩略图失败:', thumbErr);
+              // 静默处理缩略图生成错误
             }
           });
         }
       }
     );
   } catch (error) {
-    console.error('[直接上传] 失败:', {
-      message: error.message,
-      stack: error.stack,
-      code: error.code
-    });
-    res.status(500).json({
-      error: '上传失败',
-      details: error.message
-    });
+    res.status(500).json({ error: '上传失败' });
   }
 };
 

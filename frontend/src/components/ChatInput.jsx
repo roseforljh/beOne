@@ -170,7 +170,7 @@ const ChatInput = memo(function ChatInput({ conversationId, onFileSent }) {
   }, [conversationId, onFileSent, cancelledIndexes]);
 
   return (
-    <div className="border-t-2 border-taiji-gray-200 bg-taiji-white p-2 md:p-4">
+    <div className="border-t-2 border-taiji-gray-200 bg-taiji-white p-2 md:p-4 pb-6 md:pb-6">
       {uploading && uploadingFiles.length > 0 && (
         <motion.div
           initial={{ opacity: 0, y: 10 }}
@@ -192,9 +192,6 @@ const ChatInput = memo(function ChatInput({ conversationId, onFileSent }) {
             const progress = uploadProgress[index] ?? 0;
             const speed = uploadSpeed[index] ?? 0;
             const displayProgress = Math.min(Math.max(0, Math.round(progress)), 100);
-            
-            console.log(`渲染文件 ${index}:`, { progress, displayProgress });
-            
             const isCancelled = cancelledIndexes.has(index);
             
             return (

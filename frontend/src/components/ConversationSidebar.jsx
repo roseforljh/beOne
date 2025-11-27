@@ -57,9 +57,6 @@ export default function ConversationSidebar({
     const id = pendingDeleteId;
     if (!id) return;
     
-    // 立即更新本地状态，隐藏该会话
-    setDeletedIds(prev => new Set(prev).add(id));
-    
     // 关闭弹窗
     closeConfirm();
     
@@ -70,9 +67,14 @@ export default function ConversationSidebar({
       }
 
       await axios.delete(`/api/conversations/${id}`);
+      
+      // 双重保险：虽然我们做了乐观更新，但为了防止万一状态没更新（比如父组件回调有问题），
+      // 我们还是在成功后刷新一下列表。由于后端现在很快（异步删除），这个刷新也会很快。
+      // 这能彻底解决“必须切换页面才消失”的顽固 bug。
+      onRefresh();
+      
     } catch (error) {
       console.error('删除失败:', error);
-      // 只有出错时才刷新列表以确保一致性
       onRefresh();
     }
   };

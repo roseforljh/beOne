@@ -309,17 +309,56 @@ export default function Chat() {
 
   // 处理删除会话（乐观更新）
   const handleDeleteConversation = useCallback((conversationId) => {
+    console.log('Executing handleDeleteConversation for id:', conversationId);
     setConversations(prev => {
       const remaining = prev.filter(c => c.id !== conversationId);
-      
-      // 如果删除的是当前选中的会话，切换到下一个
-      if (currentConversationId === conversationId) {
-         const nextId = remaining.length > 0 ? remaining[0].id : null;
-         // 延迟设置以避免状态更新冲突
-         setTimeout(() => setCurrentConversationId(nextId), 0);
-      }
       return remaining;
     });
+    
+    // 如果删除的是当前选中的会话，切换到下一个
+    if (currentConversationId === conversationId) {
+        // 这里我们无法直接获取 filter 后的 remaining，因为那是 setConversations 内部的逻辑
+        // 所以我们需要基于当前的 conversations 来计算
+        // 注意：这里的 conversations 可能是旧的闭包，但对于计算 nextId 来说，
+        // 只要能找到一个非当前 ID 的会话即可。
+        
+        // 更稳妥的方式：
+        setConversations(prev => {
+             const remaining = prev.filter(c => c.id !== conversationId);
+             const nextId = remaining.length > 0 ? remaining[0].id : null;
+             // 直接在这里副作用调用 setCurrentConversationId 是不推荐的，但在事件处理中通常可行
+             // 为了避免 warning，我们将 setCurrentConversationId 放在外面或者使用 useEffect
+             // 但为了修复 bug，我们先尝试最直接的方式：
+             
+             // 注意：不能在 setState 回调里调用另一个 setState，这会引起 warning 或逻辑混乱
+             // 所以我们应该把 nextId 的计算放在外面
+             return remaining;
+        });
+        
+        // 在外面计算 nextId 并设置
+        // 注意：这里依赖 conversations 状态，它必须是最新的
+        // 由于闭包问题，这里的 conversations 可能不是最新的。
+        // 这是一个典型的 React 状态依赖难题。
+        
+        // 让我们换一种思路：
+        // 不在 handleDeleteConversation 里处理 currentConversationId 的切换，
+        // 而是交给 useEffect 或者 WebSocket 的 deleted 事件来处理切换。
+        // handleDeleteConversation 只负责从列表中移除。
+        
+        // 但是 WebSocket 有延迟。
+        
+        // 修正方案：手动计算
+        setConversations(currentConversations => {
+            const remaining = currentConversations.filter(c => c.id !== conversationId);
+            const nextId = remaining.length > 0 ? remaining[0].id : null;
+            
+            // 在下一次事件循环中切换 ID，确保渲染顺序
+            if (currentConversationId === conversationId) {
+                 setTimeout(() => setCurrentConversationId(nextId), 0);
+            }
+            return remaining;
+        });
+    }
   }, [currentConversationId]);
 
   // 使用 useMemo 优化标题计算
@@ -379,6 +418,10 @@ export default function Chat() {
                   onNewConversation={() => {
                     handleNewConversation();
                     setIsSidebarOpen(false); // 新建后自动关闭
+                  }}
+                  onDeleteConversation={(id) => {
+                    handleDeleteConversation(id);
+                    setIsSidebarOpen(false); // 删除后自动关闭侧边栏
                   }}
                   onRefresh={loadConversations}
                 />
