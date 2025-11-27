@@ -26,7 +26,7 @@ goto MENU
 echo.
 echo [DEBUG] Building frontend for mobile...
 cd frontend
-call npm run build
+call npm run build -- --mode mobile
 if %ERRORLEVEL% neq 0 (
     echo Frontend build failed!
     pause
@@ -73,7 +73,7 @@ goto END
 echo.
 echo [RELEASE] Building frontend for mobile...
 cd frontend
-call npm run build
+call npm run build -- --mode mobile
 if %ERRORLEVEL% neq 0 (
     echo Frontend build failed!
     pause

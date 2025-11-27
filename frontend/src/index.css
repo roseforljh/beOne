@@ -3,8 +3,19 @@
 @tailwind utilities;
 
 @layer base {
+  html, body {
+    height: 100%;
+    margin: 0;
+    padding: 0;
+    overflow: hidden; /* 防止整体滚动 */
+  }
+  
+  #root {
+    height: 100%;
+  }
+
   body {
-    @apply bg-taiji-white text-taiji-black;
+    @apply bg-taiji-gray-100 text-taiji-black;
     font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', 'Roboto', 'Oxygen',
       'Ubuntu', 'Cantarell', 'Fira Sans', 'Droid Sans', 'Helvetica Neue',
       sans-serif;

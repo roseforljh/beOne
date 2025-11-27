@@ -9,10 +9,14 @@
   },
   "android": {
     "allowMixedContent": true,
-    "captureInput": true,
+    "captureInput": false,
     "webContentsDebuggingEnabled": true
   },
   "plugins": {
+    "Keyboard": {
+      "resize": "native",
+      "accessoryBarVisible": false
+    },
     "SplashScreen": {
       "launchShowDuration": 300,
       "launchAutoHide": true,

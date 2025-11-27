@@ -11,9 +11,6 @@ import ConfirmDialog from '../components/ConfirmDialog';
 import Toast from '../components/Toast';
 import { useAuth } from '../contexts/AuthContext';
 import { connectSocket, disconnectSocket } from '../utils/socket';
-import { Keyboard } from '@capacitor/keyboard';
-import { Capacitor } from '@capacitor/core';
-
 export default function Chat() {
   const { user, token } = useAuth();
   const [messages, setMessages] = useState([]);
@@ -150,45 +147,14 @@ export default function Chat() {
     }
   }, [currentConversationId, loadMessages]);
 
+  // 监听窗口大小变化（键盘弹出/收起会触发 resize），确保消息滚动到底部
   useEffect(() => {
-    if (Capacitor.isNativePlatform()) {
-      // 使用 none 模式，完全手动控制
-      Keyboard.setResizeMode({ mode: 'none' });
-      
-      Keyboard.addListener('keyboardWillShow', info => {
-        console.log('键盘弹出，高度:', info.keyboardHeight);
-        
-        // 找到聊天卡片容器
-        const chatCard = document.querySelector('[data-chat-card]');
-        
-        if (chatCard) {
-          // 添加平滑过渡动画
-          chatCard.style.transition = 'padding-bottom 0.25s ease-out';
-          chatCard.style.paddingBottom = `${info.keyboardHeight}px`;
-          console.log('已设置 paddingBottom:', info.keyboardHeight);
-        }
-      });
-      
-      Keyboard.addListener('keyboardWillHide', () => {
-        console.log('键盘隐藏');
-        
-        // 恢复聊天卡片的padding
-        const chatCard = document.querySelector('[data-chat-card]');
-        
-        if (chatCard) {
-          chatCard.style.transition = 'padding-bottom 0.25s ease-out';
-          chatCard.style.paddingBottom = '0px';
-          console.log('已恢复 paddingBottom');
-        }
-      });
-    }
-
-    return () => {
-      if (Capacitor.isNativePlatform()) {
-        Keyboard.removeAllListeners();
-      }
+    const handleResize = () => {
+      scrollToBottom();
     };
-  }, []);
+    window.addEventListener('resize', handleResize);
+    return () => window.removeEventListener('resize', handleResize);
+  }, [scrollToBottom]);
 
   // 定义Socket事件处理函数
   const handleConnect = useCallback((socket) => {
@@ -329,7 +295,7 @@ export default function Chat() {
   }, [conversations, currentConversationId]);
 
   return (
-    <div className="h-screen bg-taiji-gray-100 flex flex-col" ref={chatContainerRef}>
+    <div className="h-full bg-taiji-gray-100 flex flex-col" ref={chatContainerRef}>
       {/* Header 固定在顶部 */}
       <div className="fixed top-0 left-0 right-0 z-50" style={{ paddingTop: 'env(safe-area-inset-top)' }}>
         <Header />
@@ -391,10 +357,9 @@ export default function Chat() {
           )}
         </AnimatePresence>
 
-        <div className="flex-1 flex flex-col lg:flex-row gap-2 md:gap-4 p-2 md:p-4">
+        <div className="flex-1 flex flex-col lg:flex-row md:gap-4 md:p-4">
           <div
-            data-chat-card
-            className="flex-1 flex flex-col bg-taiji-white rounded-xl md:rounded-2xl shadow-lg border-2 border-taiji-gray-200 overflow-hidden"
+            className="flex-1 flex flex-col bg-taiji-white md:rounded-2xl md:shadow-lg md:border-2 border-taiji-gray-200 overflow-hidden"
           >
             <div className="bg-taiji-black text-taiji-white px-3 md:px-6 py-2 md:py-4 flex items-center justify-between">
               <div className="flex items-center gap-2 md:gap-3">

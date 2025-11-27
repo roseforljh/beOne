@@ -2,6 +2,7 @@ import { BrowserRouter, Routes, Route, Navigate } from 'react-router-dom';
 import { lazy, Suspense, useEffect } from 'react';
 import { Capacitor } from '@capacitor/core';
 import { StatusBar, Style } from '@capacitor/status-bar';
+import { Keyboard, KeyboardResize } from '@capacitor/keyboard';
 import { AuthProvider, useAuth } from './contexts/AuthContext';
 import LoadingSpinner from './components/LoadingSpinner';
 import ErrorBoundary from './components/ErrorBoundary';
@@ -67,6 +68,9 @@ function App() {
       StatusBar.setStyle({ style: Style.Light });
       // 设置状态栏背景色为白色
       StatusBar.setBackgroundColor({ color: '#FFFFFF' });
+      
+      // 强制使用原生 Resize 模式，防止 Capacitor 插件干预布局
+      Keyboard.setResizeMode({ mode: KeyboardResize.Native });
     }
   }, []);
 
