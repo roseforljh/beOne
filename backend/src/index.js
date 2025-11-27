@@ -1,7 +1,7 @@
+import './config/env.js';
 import express from 'express';
 import { createServer } from 'http';
 import cors from 'cors';
-import dotenv from 'dotenv';
 import compression from 'compression';
 import cluster from 'cluster';
 import os from 'os';
@@ -14,13 +14,6 @@ import filesRoutes from './routes/files.js';
 import messagesRoutes from './routes/messages.js';
 import userRoutes from './routes/user.js';
 import conversationsRoutes from './routes/conversations.js';
-
-// 优先加载开发环境配置
-if (process.env.NODE_ENV === 'development') {
-  dotenv.config({ path: '.env.development' });
-} else {
-  dotenv.config();
-}
 
 const app = express();
 const httpServer = createServer(app);

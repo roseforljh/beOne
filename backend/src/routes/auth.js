@@ -31,7 +31,11 @@ router.post('/guest-login', async (req, res) => {
         };
 
         // 确保使用与认证中间件相同的JWT_SECRET
-        const JWT_SECRET = process.env.JWT_SECRET || 'taiji_secret_key_change_in_production';
+        const JWT_SECRET = process.env.JWT_SECRET;
+        if (!JWT_SECRET) {
+          console.error('FATAL ERROR: JWT_SECRET is not defined in environment variables');
+          return res.status(500).json({ error: '服务器配置错误' });
+        }
         const token = jwt.sign(
           {
             id: user.id,
@@ -83,7 +87,11 @@ router.post('/login', (req, res) => {
       }
 
       // 确保使用与认证中间件相同的JWT_SECRET
-      const JWT_SECRET = process.env.JWT_SECRET || 'taiji_secret_key_change_in_production';
+      const JWT_SECRET = process.env.JWT_SECRET;
+      if (!JWT_SECRET) {
+        console.error('FATAL ERROR: JWT_SECRET is not defined in environment variables');
+        return res.status(500).json({ error: '服务器配置错误' });
+      }
       const token = jwt.sign(
         {
           id: user.id,

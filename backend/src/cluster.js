@@ -1,3 +1,4 @@
+import './config/env.js';
 import cluster from 'cluster';
 import os from 'os';
 import { fileURLToPath } from 'url';
@@ -25,7 +26,7 @@ if (cluster.isPrimary) {
   // 监听工作进程退出
   cluster.on('exit', (worker, code, signal) => {
     console.log(`❌ 工作进程 ${worker.process.pid} 已退出 (code: ${code}, signal: ${signal})`);
-    
+
     // 自动重启崩溃的工作进程
     if (code !== 0 && !worker.exitedAfterDisconnect) {
       console.log('🔄 正在重启工作进程...');

@@ -61,6 +61,11 @@ export const AuthProvider = ({ children }) => {
       const response = await axios.post('/api/auth/login', { username, password });
       const { token: newToken, user: newUser } = response.data;
       
+      // 先清除旧状态
+      localStorage.removeItem('token');
+      localStorage.removeItem('user');
+      delete axios.defaults.headers.common['Authorization'];
+
       setToken(newToken);
       setUser(newUser);
       
@@ -93,6 +98,11 @@ export const AuthProvider = ({ children }) => {
       const response = await axios.post('/api/auth/guest-login');
       const { token: newToken, user: newUser } = response.data;
       
+      // 先清除旧状态
+      localStorage.removeItem('token');
+      localStorage.removeItem('user');
+      delete axios.defaults.headers.common['Authorization'];
+
       setToken(newToken);
       setUser(newUser);
       

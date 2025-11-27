@@ -81,7 +81,7 @@ axiosInstance.interceptors.request.use(
     if (token) {
       config.headers.Authorization = `Bearer ${token}`;
     }
-    
+
     // 重要：不要覆盖 FormData 的 Content-Type
     // FormData 需要浏览器自动设置 multipart/form-data 边界
     if (config.data instanceof FormData) {
@@ -92,12 +92,12 @@ axiosInstance.interceptors.request.use(
       // 非 FormData 请求保持 JSON 格式
       config.headers['Content-Type'] = 'application/json';
     }
-    
+
     // 移动端优化：添加压缩支持
     if (Capacitor.isNativePlatform()) {
       config.headers['Accept-Encoding'] = 'gzip, deflate';
     }
-    
+
     // 添加时间戳防止缓存（仅 GET 请求）
     if (config.method === 'get') {
       config.params = {
@@ -105,7 +105,7 @@ axiosInstance.interceptors.request.use(
         _t: Date.now()
       };
     }
-    
+
     // 调试日志：检查token是否正确传递
     console.log('[API Request]', {
       method: config.method?.toUpperCase(),
@@ -119,11 +119,14 @@ axiosInstance.interceptors.request.use(
         Authorization: config.headers.Authorization ? config.headers.Authorization.substring(0, 40) + '...' : 'none'
       }
     });
-    
-    if (!token) {
-      console.error('[API] ⚠️ 没有找到 token，请求可能会失败');
+
+    // 登录和游客登录接口不需要 token
+    const isAuthRequest = config.url?.includes('/auth/login') || config.url?.includes('/auth/guest-login');
+
+    if (!token && !isAuthRequest) {
+      console.warn('[API] ⚠️ 没有找到 token，非认证请求可能会失败');
     }
-    
+
     return config;
   },
   (error) => {
@@ -138,7 +141,7 @@ axiosInstance.interceptors.response.use(
   },
   async (error) => {
     const config = error.config;
-    
+
     // 403错误详细日志
     if (error.response?.status === 403) {
       console.error('[API] 403 Forbidden Error:', {
@@ -153,23 +156,23 @@ axiosInstance.interceptors.response.use(
         requestTime: new Date().toISOString()
       });
     }
-    
+
     // 网络错误重试机制（移动端优化）
     if (Capacitor.isNativePlatform() && !config._retry &&
-        (error.code === 'ECONNABORTED' || error.code === 'ERR_NETWORK' || !error.response)) {
+      (error.code === 'ECONNABORTED' || error.code === 'ERR_NETWORK' || !error.response)) {
       config._retry = true;
       config._retryCount = config._retryCount || 0;
-      
+
       if (config._retryCount < 2) { // 最多重试2次
         config._retryCount += 1;
         console.log(`请求重试 ${config._retryCount}/2:`, config.url);
-        
+
         // 指数退避：第一次等待500ms，第二次等待1000ms
         await new Promise(resolve => setTimeout(resolve, 500 * config._retryCount));
         return axiosInstance(config);
       }
     }
-    
+
     // 统一错误处理
     if (error.response?.status === 401) {
       // Token 过期，清除并跳转登录
@@ -178,7 +181,7 @@ axiosInstance.interceptors.response.use(
       localStorage.removeItem('user');
       window.location.href = '/login';
     }
-    
+
     return Promise.reject(error);
   }
 );
@@ -187,19 +190,19 @@ axiosInstance.interceptors.response.use(
 const cachedRequest = async (key, requestFn, cacheDuration = CACHE_DURATION) => {
   const now = Date.now();
   const cached = requestCache.get(key);
-  
+
   if (cached && now - cached.timestamp < cacheDuration) {
     return cached.data;
   }
-  
+
   const data = await requestFn();
   requestCache.set(key, { data, timestamp: now });
-  
+
   // 清理过期缓存
   setTimeout(() => {
     requestCache.delete(key);
   }, cacheDuration);
-  
+
   return data;
 };
 
@@ -207,7 +210,7 @@ export const api = {
   // 文件相关（使用 LRU 缓存 + IndexedDB）
   async getFiles(useCache = true) {
     const cacheKey = 'files_list';
-    
+
     if (useCache) {
       // 1. 先查 LRU 内存缓存（最快）
       const lruCached = apiCache.get(cacheKey);
@@ -254,7 +257,7 @@ export const api = {
       const response = await axiosInstance.get('/api/files/public');
       return response.data.files;
     };
-    
+
     if (useCache) {
       return cachedRequest('public-files', requestFn);
     }
@@ -263,19 +266,19 @@ export const api = {
 
   async toggleVisibility(fileId) {
     const response = await axiosInstance.patch(`/api/files/${fileId}/visibility`);
-    
+
     // 清除所有缓存，确保可见性更新立即生效
     console.log('[API] 清除文件缓存，更新可见性，文件ID:', fileId);
-    
+
     // 清除内存缓存
     requestCache.delete('files');
     requestCache.delete('public-files');
     requestCache.delete('files_list');
-    
+
     // 清除 LRU 缓存
     apiCache.delete('files_list');
     apiCache.delete('public-files');
-    
+
     // 清除 IndexedDB 缓存
     try {
       await dbCache.deleteCachedResponse('files_list');
@@ -284,25 +287,25 @@ export const api = {
     } catch (err) {
       console.warn('[IndexedDB] 删除缓存失败:', err);
     }
-    
+
     return response.data;
   },
 
   async deleteFile(fileId) {
     const response = await axiosInstance.delete(`/api/files/${fileId}`);
-    
+
     // 强制清除所有缓存，确保删除操作立即生效
     console.log('[API] 清除所有文件缓存，删除文件ID:', fileId);
-    
+
     // 清除内存缓存
     requestCache.delete('files');
     requestCache.delete('public-files');
     requestCache.delete('files_list');
-    
+
     // 清除 LRU 缓存
     apiCache.delete('files_list');
     apiCache.delete('public-files');
-    
+
     // 清除 IndexedDB 缓存
     try {
       await dbCache.deleteCachedResponse('files_list');
@@ -311,14 +314,14 @@ export const api = {
     } catch (err) {
       console.warn('[IndexedDB] 删除缓存失败:', err);
     }
-    
+
     // 清空布隆过滤器（因为布隆过滤器不支持精确删除）
     fileExistsFilter.clear();
-    
+
     // 强制刷新页面缓存，确保下次 loadFiles 不使用缓存
     const now = Date.now();
     console.log('[API] 文件删除完成，时间戳:', now);
-    
+
     return response.data;
   },
 
@@ -345,7 +348,7 @@ export const api = {
     const baseUrl = getApiBaseUrl();
     return baseUrl + url;
   },
-  
+
   // 清除所有缓存
   clearCache() {
     requestCache.clear();
