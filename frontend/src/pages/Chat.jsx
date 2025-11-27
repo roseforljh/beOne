@@ -183,7 +183,13 @@ export default function Chat() {
   
   const handleConversationsUpdated = useCallback((data) => {
     if (data.type === 'created') {
-      setConversations(prev => [data.conversation, ...prev]);
+      setConversations(prev => {
+        // 防止重复添加（比如本地乐观更新已经添加了）
+        if (prev.some(c => c.id === data.conversation.id)) {
+          return prev;
+        }
+        return [data.conversation, ...prev];
+      });
     } else if (data.type === 'updated') {
       // 通用更新逻辑，合并 data 中的所有字段
       setConversations(prev =>
@@ -191,19 +197,29 @@ export default function Chat() {
       );
     } else if (data.type === 'deleted') {
       // 如果删除的是当前活动会话
-      if (currentConversationId === data.conversationId) {
-        setConversations(prev => {
-          const remaining = prev.filter(c => c.id !== data.conversationId);
-          const nextId = remaining.length > 0 ? remaining[0].id : null;
-          setCurrentConversationId(nextId);
-          return remaining;
-        });
-      } else {
-        // 如果删除的不是当前活动会话，直接过滤
-        setConversations(prev => prev.filter(c => c.id !== data.conversationId));
-      }
+      // 注意：这里需要使用函数式更新时的最新 prev 状态来判断
+      setConversations(prev => {
+        const remaining = prev.filter(c => c.id !== data.conversationId);
+        
+        // 只有当被删除的会话 ID 等于当前选中的 ID 时，才需要切换
+        // 但这里有一个闭包陷阱：currentConversationId 是旧的
+        // 所以我们最好在 setConversations 外部判断，或者在 setState 内部逻辑更健壮些
+        // 由于我们无法在 setState 内部获取准确的 currentConversationId（它依赖外部闭包），
+        // 我们依赖外部的 currentConversationId 依赖项。
+        
+        if (currentConversationId === data.conversationId) {
+           const nextId = remaining.length > 0 ? remaining[0].id : null;
+           // 这里调用 setCurrentConversationId 是安全的，但要注意渲染循环
+           // 更好的做法是使用 useEffect 监听 conversations 变化来自动修正 selection，
+           // 但这里为了简单直接处理
+           // 延迟执行以避免在渲染过程中更新状态
+           setTimeout(() => setCurrentConversationId(nextId), 0);
+        }
+        
+        return remaining;
+      });
     }
-  }, [currentConversationId]); // 移除 conversations 依赖
+  }, [currentConversationId]);
 
   const handleMessagesCleared = useCallback((data) => {
     console.log('收到清空消息事件:', data);
@@ -258,7 +274,7 @@ export default function Chat() {
       await axiosInstance.delete(`/api/messages?conversation_id=${currentConversationId}`);
       setMessages([]);
       loadConversations();
-      showToastMessage('聊天记录已清空', 'success');
+      // showToastMessage('聊天记录已清空', 'success');
     } catch (error) {
       console.error('清空失败:', error);
       showToastMessage('清空失败，请重试', 'error');
@@ -275,16 +291,36 @@ export default function Chat() {
     try {
       const newConv = await createNewConversation();
       if (newConv) {
-        // 后端会通过 websocket 通知我们更新列表，
-        // 我们只需要在操作端将会话切换到新建的这个
+        // 手动乐观更新：立即添加到列表顶部，无需等待 WS
+        setConversations(prev => {
+            // 防止重复（虽然刚创建 ID 应该是唯一的）
+            if (prev.some(c => c.id === newConv.id)) return prev;
+            return [newConv, ...prev];
+        });
+        
         setCurrentConversationId(newConv.id);
-        showToastMessage('会话创建成功', 'success');
+        // showToastMessage('会话创建成功', 'success');
       }
     } catch (error) {
       console.error('创建会话时出错:', error);
       // createNewConversation 内部已经处理了错误提示，这里不需要重复处理
     }
   };
+
+  // 处理删除会话（乐观更新）
+  const handleDeleteConversation = useCallback((conversationId) => {
+    setConversations(prev => {
+      const remaining = prev.filter(c => c.id !== conversationId);
+      
+      // 如果删除的是当前选中的会话，切换到下一个
+      if (currentConversationId === conversationId) {
+         const nextId = remaining.length > 0 ? remaining[0].id : null;
+         // 延迟设置以避免状态更新冲突
+         setTimeout(() => setCurrentConversationId(nextId), 0);
+      }
+      return remaining;
+    });
+  }, [currentConversationId]);
 
   // 使用 useMemo 优化标题计算
   const currentConversationTitle = useMemo(() => {
@@ -295,24 +331,22 @@ export default function Chat() {
   }, [conversations, currentConversationId]);
 
   return (
-    <div className="h-full bg-taiji-gray-100 flex flex-col" ref={chatContainerRef}>
-      {/* Header 固定在顶部 */}
-      <div className="fixed top-0 left-0 right-0 z-50" style={{ paddingTop: 'env(safe-area-inset-top)' }}>
-        <Header />
+    <div className="fixed inset-0 bg-taiji-gray-100 flex flex-col" ref={chatContainerRef}>
+      {/* Header 作为 Flex 子项，不使用 fixed 定位 */}
+      <div className="flex-none z-50">
+        <Header fixed={false} />
       </div>
 
-      {/* 内容区域 - 手动控制 padding */}
-      <div
-        className="flex-1 flex overflow-hidden min-h-0"
-        style={{ paddingTop: 'calc(60px + env(safe-area-inset-top))' }}
-      >
+      {/* 内容区域 - 自动占据剩余空间 */}
+      <div className="flex-1 flex overflow-hidden min-h-0 relative">
         {/* 桌面端侧边栏 */}
-        <div className="hidden lg:block">
+        <div className="hidden lg:block h-full">
           <ConversationSidebar
             conversations={conversations}
             currentConversationId={currentConversationId}
             onSelectConversation={handleSelectConversation}
             onNewConversation={handleNewConversation}
+            onDeleteConversation={handleDeleteConversation}
             onRefresh={loadConversations}
           />
         </div>
@@ -333,11 +367,7 @@ export default function Chat() {
                 animate={{ x: 0 }}
                 exit={{ x: '-100%' }}
                 transition={{ type: 'spring', stiffness: 300, damping: 30 }}
-                className="fixed left-0 z-40 lg:hidden"
-                style={{
-                  top: 'calc(60px + env(safe-area-inset-top))',
-                  height: 'calc(100% - 60px - env(safe-area-inset-top))'
-                }}
+                className="absolute top-0 left-0 bottom-0 z-40 lg:hidden h-full"
               >
                 <ConversationSidebar
                   conversations={conversations}
@@ -385,7 +415,7 @@ export default function Chat() {
                   whileHover={{ scale: 1.05 }}
                   whileTap={{ scale: 0.95 }}
                   onClick={handleClearMessages}
-                  className="px-3 py-1.5 md:px-4 md:py-2 bg-red-500 hover:bg-red-600 text-white text-xs md:text-sm rounded-lg transition-colors flex items-center gap-1.5"
+                  className="px-3 py-1.5 md:px-4 md:py-2 bg-red-500 hover:bg-red-600 text白 text-xs md:text-sm rounded-lg transition-colors flex items-center gap-1.5"
                   title="清空聊天记录"
                 >
                   <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">

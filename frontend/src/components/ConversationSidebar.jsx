@@ -7,7 +7,8 @@ export default function ConversationSidebar({
   currentConversationId, 
   onSelectConversation, 
   onNewConversation,
-  onRefresh 
+  onDeleteConversation,
+  onRefresh
 }) {
   const [editingId, setEditingId] = useState(null);
   const [editTitle, setEditTitle] = useState('');
@@ -23,16 +24,22 @@ export default function ConversationSidebar({
     }
 
     try {
-      // 乐观更新：先本地改标题
-      const oldTitle = editTitle;
+      // 乐观更新：先本地改标题（通过父组件回调或直接修改本地状态）
+      // 注意：这里我们不再调用 onRefresh，而是依赖父组件的乐观更新逻辑或 ws 推送
+      const newTitle = editTitle;
       setEditingId(null);
-      onRefresh(); // 让父级刷新（同时也会有 ws 推送兜底）
-      await axios.patch(`/api/conversations/${id}`, { title: oldTitle });
+      
+      // 立即更新 UI（如果父组件支持，或者这里我们只是发起请求，让 WS 来更新）
+      // 但为了更好的体验，我们应该通知父组件进行乐观更新，这里简化为发起请求，
+      // 依赖 WS 或父组件的 handleConversationsUpdated 来更新 UI
+      
+      await axios.patch(`/api/conversations/${id}`, { title: newTitle });
     } catch (error) {
-      // 失败再刷新一次回滚
-      onRefresh();
-      // 轻提示替代 alert（保留以兼容桌面）
+      // 失败时，WS 不会推送更新，UI 会保持原样（或者如果做了乐观更新需要回滚）
+      // 这里简单处理，如果失败了，用户刷新页面会恢复
       console.error('重命名失败:', error);
+      // 如果失败，尝试刷新以恢复正确状态
+      onRefresh();
     }
   };
 
@@ -49,18 +56,23 @@ export default function ConversationSidebar({
   const confirmDelete = async () => {
     const id = pendingDeleteId;
     if (!id) return;
+    
+    // 立即更新本地状态，隐藏该会话
+    setDeletedIds(prev => new Set(prev).add(id));
+    
     // 关闭弹窗
     closeConfirm();
+    
     try {
-      await axios.delete(`/api/conversations/${id}`);
-      // 如果删除的是当前会话，切换到默认会话
-      if (id === currentConversationId) {
-        onSelectConversation(null);
+      // 乐观更新：先通知父组件移除会话
+      if (onDeleteConversation) {
+        onDeleteConversation(id);
       }
-      // 删除成功后刷新列表（WebSocket也会推送更新）
-      onRefresh();
+
+      await axios.delete(`/api/conversations/${id}`);
     } catch (error) {
       console.error('删除失败:', error);
+      // 只有出错时才刷新列表以确保一致性
       onRefresh();
     }
   };

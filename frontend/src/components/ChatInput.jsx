@@ -292,7 +292,7 @@ const ChatInput = memo(function ChatInput({ conversationId, onFileSent }) {
           whileTap={{ scale: 0.95 }}
           onClick={handleSend}
           disabled={!message.trim()}
-          className="px-4 md:px-6 py-2 md:py-3 bg-taiji-black text-taiji-white rounded-lg hover:bg-taiji-gray-800 transition-colors disabled:opacity-50 disabled:cursor-not-allowed font-medium text-sm md:text-base min-w-[60px]"
+          className="px-4 md:px-6 py-2 md:py-3 bg-red-500 text-white rounded-lg hover:bg-red-600 transition-colors disabled:opacity-50 disabled:cursor-not-allowed font-medium text-sm md:text-base min-w-[60px]"
         >
           发送
         </motion.button>

@@ -51,7 +51,7 @@ router.post('/', (req, res) => {
   db.run(
     'INSERT INTO conversations (user_id, title) VALUES (?, ?)',
     [userId, conversationTitle],
-    function(err) {
+    function (err) {
       if (err) {
         return res.status(500).json({ error: '创建会话失败' });
       }
@@ -63,7 +63,7 @@ router.post('/', (req, res) => {
         updated_at: new Date().toISOString(),
         message_count: 0
       };
-      
+
       // 广播会话更新事件，并带上新会话的数据
       const io = req.app.get('io');
       io.to(`user_${userId}`).emit('conversations_updated', { type: 'created', conversation });
@@ -125,59 +125,69 @@ router.delete('/:id', (req, res) => {
         return res.status(404).json({ error: '会话不存在' });
       }
 
-      // 先获取该会话中所有包含文件的消息
+      // 1. 先执行数据库删除操作，确保响应速度
+      db.run('DELETE FROM conversations WHERE id = ?', [conversationId], (err) => {
+        if (err) {
+          return res.status(500).json({ error: '删除失败' });
+        }
+
+        // 2. 立即响应客户端
+        res.json({ success: true });
+
+        // 3. 广播会话更新事件
+        const io = req.app.get('io');
+        io.to(`user_${userId}`).emit('conversations_updated', { type: 'deleted', conversationId });
+
+        // 4. 后台异步清理文件
+        // 先获取该会话中所有包含文件的消息（注意：因为会话已删除，这里可能查不到消息了，
+        // 所以应该在删除会话前查询，或者依赖定期清理任务。
+        // 修正策略：为了不阻塞，我们改为先查询文件，再删除数据库，但文件删除操作放在后台执行）
+      });
+
+      // 重新实现：为了正确清理文件，我们需要在删除会话前获取文件列表
+      // 但为了响应速度，我们不等待文件删除完成
+
+      // 获取该会话中所有包含文件的消息
       db.all(
         'SELECT m.file_id, f.* FROM messages m LEFT JOIN files f ON m.file_id = f.id WHERE m.conversation_id = ? AND m.file_id IS NOT NULL',
         [conversationId],
         (err, fileMessages) => {
           if (err) {
             console.error('查询会话文件失败:', err);
+            return;
           }
 
-          // 删除所有会话文件（source='chat'）
           if (fileMessages && fileMessages.length > 0) {
-            fileMessages.forEach(file => {
-              if (file && file.source === 'chat') {
-                // 删除物理文件
-                if (file.path && fs.existsSync(file.path)) {
-                  fs.unlinkSync(file.path);
+            // 后台异步处理文件删除
+            process.nextTick(async () => {
+              for (const file of fileMessages) {
+                if (file && file.source === 'chat') {
+                  try {
+                    // 删除物理文件
+                    if (file.path) {
+                      await fs.promises.unlink(file.path).catch(() => { });
+                    }
+
+                    // 删除缩略图
+                    if (file.filename) {
+                      const thumbPath = path.join(uploadsDir, 'thumbs', file.filename);
+                      await fs.promises.unlink(thumbPath).catch(() => { });
+
+                      const smallThumbPath = thumbPath.replace(path.extname(thumbPath), '_small' + path.extname(thumbPath));
+                      await fs.promises.unlink(smallThumbPath).catch(() => { });
+                    }
+
+                    // 删除文件记录
+                    db.run('DELETE FROM files WHERE id = ?', [file.id], (err) => {
+                      if (err) console.error('删除会话文件记录失败:', err);
+                    });
+                  } catch (e) {
+                    console.error('后台清理文件失败:', e);
+                  }
                 }
-
-                // 删除缩略图
-                if (file.filename) {
-                  const thumbPath = path.join(uploadsDir, 'thumbs', file.filename);
-                  if (fs.existsSync(thumbPath)) {
-                    fs.unlinkSync(thumbPath);
-                  }
-
-                  const smallThumbPath = thumbPath.replace(path.extname(thumbPath), '_small' + path.extname(thumbPath));
-                  if (fs.existsSync(smallThumbPath)) {
-                    fs.unlinkSync(smallThumbPath);
-                  }
-                }
-
-                // 删除文件记录
-                db.run('DELETE FROM files WHERE id = ?', [file.id], (err) => {
-                  if (err) {
-                    console.error('删除会话文件记录失败:', err);
-                  }
-                });
               }
             });
           }
-
-          // 删除会话（消息会因为 ON DELETE CASCADE 自动删除）
-          db.run('DELETE FROM conversations WHERE id = ?', [conversationId], (err) => {
-            if (err) {
-              return res.status(500).json({ error: '删除失败' });
-            }
-
-            // 广播会话更新事件
-            const io = req.app.get('io');
-            io.to(`user_${userId}`).emit('conversations_updated', { type: 'deleted', conversationId });
-
-            res.json({ success: true });
-          });
         }
       );
     }

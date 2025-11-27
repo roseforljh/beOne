@@ -69,8 +69,11 @@ function App() {
       // 设置状态栏背景色为白色
       StatusBar.setBackgroundColor({ color: '#FFFFFF' });
       
-      // 强制使用原生 Resize 模式，防止 Capacitor 插件干预布局
+      // 使用原生 Resize 模式，让 WebView 高度随键盘调整，避免整页被平移
       Keyboard.setResizeMode({ mode: KeyboardResize.Native });
+      
+      // 禁止键盘弹出时自动滚动 WebView，防止顶栏被顶出屏幕
+      Keyboard.setScroll({ isDisabled: true });
     }
   }, []);
 

@@ -4,14 +4,14 @@ import { useAuth } from '../contexts/AuthContext';
 import TaijiLogo from './TaijiLogo';
 import { motion, AnimatePresence } from 'framer-motion';
 
-export default function Header() {
+export default function Header({ fixed = true }) {
   const { user, logout } = useAuth();
   const location = useLocation();
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
 
   return (
     <header
-      className="fixed top-0 left-0 right-0 z-50 border-b border-taiji-gray-200 bg-white/90 backdrop-blur supports-[backdrop-filter]:bg-white/70"
+      className={`${fixed ? 'fixed top-0 left-0 right-0' : 'w-full'} z-50 border-b border-taiji-gray-200 bg-white/90 backdrop-blur supports-[backdrop-filter]:bg-white/70`}
       style={{ paddingTop: 'env(safe-area-inset-top)' }}
     >
       <div
