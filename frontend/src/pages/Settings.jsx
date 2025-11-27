@@ -1,6 +1,6 @@
 import { useState } from 'react';
 import { motion } from 'framer-motion';
-import axios from 'axios';
+import { axiosInstance as axios } from '../utils/api';
 import Header from '../components/Header';
 import { useAuth } from '../contexts/AuthContext';
 import TaijiLogo from '../components/TaijiLogo';
