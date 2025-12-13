@@ -1,4 +1,5 @@
 import secrets
+import json
 from urllib.parse import urlencode
 
 import httpx
@@ -121,7 +122,7 @@ async def oauth_login(provider: str, request: Request, redirect_to: str | None =
     payload = {"provider": provider}
     if redirect_to:
         payload["redirect_to"] = _validate_redirect_to(redirect_to)
-    await redis.setex(f"oauth_state:{state}", 600, payload)
+    await redis.setex(f"oauth_state:{state}", 600, json.dumps(payload))
 
     redirect_uri = _callback_url(provider)
 
@@ -162,13 +163,18 @@ async def oauth_callback(
     _require_oauth_config(provider)
 
     redis = request.app.state.redis
-    saved_state = await redis.get(f"oauth_state:{state}")
+    saved_state_raw = await redis.get(f"oauth_state:{state}")
+    saved_state: dict | None = None
+    if saved_state_raw:
+        try:
+            saved_state = json.loads(saved_state_raw)
+        except Exception:
+            saved_state = None
     if not saved_state:
         raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="Invalid OAuth state")
-    saved_provider = saved_state.get("provider") if isinstance(saved_state, dict) else saved_state
-    if saved_provider != provider:
+    if saved_state.get("provider") != provider:
         raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="Invalid OAuth state")
-    redirect_to = saved_state.get("redirect_to") if isinstance(saved_state, dict) else None
+    redirect_to = saved_state.get("redirect_to")
     await redis.delete(f"oauth_state:{state}")
 
     redirect_uri = _callback_url(provider)
