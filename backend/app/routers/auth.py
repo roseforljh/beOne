@@ -46,6 +46,24 @@ def _frontend_redirect(token: str, provider: str) -> str:
     return f"{settings.FRONTEND_PUBLIC_URL}/login?{query}"
 
 
+def _mobile_redirect(token: str, provider: str, redirect_to: str) -> str:
+    query = urlencode({"token": token, "provider": provider})
+    if "?" in redirect_to:
+        return f"{redirect_to}&{query}"
+    return f"{redirect_to}?{query}"
+
+
+def _validate_redirect_to(redirect_to: str) -> str:
+    # Prevent open redirect: only allow our app deep link.
+    # Example: synchub://oauth
+    if redirect_to != "synchub://oauth":
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="Invalid redirect_to",
+        )
+    return redirect_to
+
+
 @router.post("/dev-login", response_model=TokenResponse)
 async def dev_login(
     request: DevLoginRequest,
@@ -95,12 +113,15 @@ async def get_current_user_info(
 
 
 @router.get("/oauth/{provider}/login")
-async def oauth_login(provider: str, request: Request):
+async def oauth_login(provider: str, request: Request, redirect_to: str | None = None):
     _require_oauth_config(provider)
 
     state = secrets.token_urlsafe(32)
     redis = request.app.state.redis
-    await redis.setex(f"oauth_state:{state}", 600, provider)
+    payload = {"provider": provider}
+    if redirect_to:
+        payload["redirect_to"] = _validate_redirect_to(redirect_to)
+    await redis.setex(f"oauth_state:{state}", 600, payload)
 
     redirect_uri = _callback_url(provider)
 
@@ -141,9 +162,13 @@ async def oauth_callback(
     _require_oauth_config(provider)
 
     redis = request.app.state.redis
-    saved_provider = await redis.get(f"oauth_state:{state}")
-    if not saved_provider or saved_provider != provider:
+    saved_state = await redis.get(f"oauth_state:{state}")
+    if not saved_state:
         raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="Invalid OAuth state")
+    saved_provider = saved_state.get("provider") if isinstance(saved_state, dict) else saved_state
+    if saved_provider != provider:
+        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="Invalid OAuth state")
+    redirect_to = saved_state.get("redirect_to") if isinstance(saved_state, dict) else None
     await redis.delete(f"oauth_state:{state}")
 
     redirect_uri = _callback_url(provider)
@@ -202,6 +227,8 @@ async def oauth_callback(
                 avatar_url=avatar_url,
             )
             token = auth_service.create_access_token(user_id=user.id)
+            if redirect_to:
+                return RedirectResponse(url=_mobile_redirect(token, provider, redirect_to))
             return RedirectResponse(url=_frontend_redirect(token, provider))
 
         if provider == "google":
@@ -242,6 +269,8 @@ async def oauth_callback(
                 avatar_url=avatar_url,
             )
             token = auth_service.create_access_token(user_id=user.id)
+            if redirect_to:
+                return RedirectResponse(url=_mobile_redirect(token, provider, redirect_to))
             return RedirectResponse(url=_frontend_redirect(token, provider))
 
     raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="Unsupported OAuth provider")

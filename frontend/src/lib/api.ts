@@ -1,6 +1,13 @@
 import axios from 'axios';
 
-export const API_BASE_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8000';
+const getApiBaseUrl = () => {
+  const envUrl = process.env.NEXT_PUBLIC_API_URL;
+  if (envUrl && envUrl.trim()) return envUrl;
+  if (typeof window !== 'undefined' && window.location?.origin) return window.location.origin;
+  return 'http://localhost:8000';
+};
+
+export const API_BASE_URL = getApiBaseUrl();
 
 export const resolveUrl = (path?: string | null) => {
   if (!path) return null;
@@ -74,7 +81,7 @@ export const authApi = {
     return response.data;
   },
   oauthLoginUrl: (provider: 'github' | 'google') => {
-    return new URL(`/api/v1/auth/oauth/${provider}/login`, API_BASE_URL).toString();
+    return new URL(`/api/v1/auth/oauth/${provider}/login`, getApiBaseUrl()).toString();
   },
 };
 

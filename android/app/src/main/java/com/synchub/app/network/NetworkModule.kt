@@ -15,9 +15,11 @@ object NetworkModule {
     // For emulator: use 10.0.2.2, for real device: use your computer's LAN IP
     private val serverHost = BuildConfig.SERVER_HOST
     private val serverPort = BuildConfig.SERVER_PORT
+
+    private val serverScheme = if (serverPort == "443") "https" else "http"
     
-    val BASE_URL = "http://$serverHost:$serverPort/api/v1/"
-    val SERVER_URL = "http://$serverHost:$serverPort"
+    val BASE_URL = "$serverScheme://$serverHost:$serverPort/api/v1/"
+    val SERVER_URL = "$serverScheme://$serverHost:$serverPort"
 
     fun provideOkHttpClient(tokenManager: TokenManager): OkHttpClient {
         val logging = HttpLoggingInterceptor().apply {

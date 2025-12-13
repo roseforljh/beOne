@@ -46,6 +46,15 @@
                 <data android:mimeType="image/*" />
                 <data android:mimeType="application/*" />
             </intent-filter>
+
+            <intent-filter>
+                <action android:name="android.intent.action.VIEW" />
+                <category android:name="android.intent.category.DEFAULT" />
+                <category android:name="android.intent.category.BROWSABLE" />
+                <data
+                    android:scheme="synchub"
+                    android:host="oauth" />
+            </intent-filter>
         </activity>
     </application>
 

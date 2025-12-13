@@ -67,6 +67,20 @@ class MainActivity : ComponentActivity() {
     private lateinit var tokenManager: TokenManager
     private lateinit var conversationRepository: ConversationRepository
 
+    private fun handleOAuthCallback(intent: Intent?): Boolean {
+        val data = intent?.data ?: return false
+        if (intent.action != Intent.ACTION_VIEW) return false
+        if (data.scheme != "synchub" || data.host != "oauth") return false
+
+        val token = data.getQueryParameter("token")
+        if (!token.isNullOrBlank()) {
+            tokenManager.saveToken(token)
+            return true
+        }
+
+        return false
+    }
+
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         WindowCompat.setDecorFitsSystemWindows(window, false)
@@ -93,8 +107,14 @@ class MainActivity : ComponentActivity() {
             }
         }
 
+        val oauthSaved = handleOAuthCallback(intent)
         // Handle Share Intent if present
         handleIntent(intent)
+
+        if (oauthSaved) {
+            recreate()
+            return
+        }
 
         setContent {
             SyncHubTheme {
@@ -270,7 +290,12 @@ class MainActivity : ComponentActivity() {
 
     override fun onNewIntent(intent: Intent) {
         super.onNewIntent(intent)
+        val oauthSaved = handleOAuthCallback(intent)
         handleIntent(intent)
+
+        if (oauthSaved) {
+            recreate()
+        }
     }
 
     private fun handleIntent(intent: Intent?) {

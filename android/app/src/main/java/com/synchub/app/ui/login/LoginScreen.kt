@@ -2,6 +2,7 @@ package com.synchub.app.ui.login
 
 import android.content.Intent
 import android.net.Uri
+import androidx.browser.customtabs.CustomTabsIntent
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
@@ -193,9 +194,14 @@ fun LoginScreen(
                     OutlinedButton(
                         onClick = {
                             oauthLoading = "github"
-                            val authUrl = "${NetworkModule.SERVER_URL}/api/v1/auth/github/authorize"
-                            val intent = Intent(Intent.ACTION_VIEW, Uri.parse(authUrl))
-                            context.startActivity(intent)
+                            val authUrl = "${NetworkModule.SERVER_URL}/api/v1/auth/oauth/github/login?redirect_to=synchub://oauth"
+                            val uri = Uri.parse(authUrl)
+                            try {
+                                CustomTabsIntent.Builder().build().launchUrl(context, uri)
+                            } catch (e: Exception) {
+                                val intent = Intent(Intent.ACTION_VIEW, uri)
+                                context.startActivity(intent)
+                            }
                             oauthLoading = null
                         },
                         modifier = Modifier
@@ -229,9 +235,14 @@ fun LoginScreen(
                     OutlinedButton(
                         onClick = {
                             oauthLoading = "google"
-                            val authUrl = "${NetworkModule.SERVER_URL}/api/v1/auth/google/authorize"
-                            val intent = Intent(Intent.ACTION_VIEW, Uri.parse(authUrl))
-                            context.startActivity(intent)
+                            val authUrl = "${NetworkModule.SERVER_URL}/api/v1/auth/oauth/google/login?redirect_to=synchub://oauth"
+                            val uri = Uri.parse(authUrl)
+                            try {
+                                CustomTabsIntent.Builder().build().launchUrl(context, uri)
+                            } catch (e: Exception) {
+                                val intent = Intent(Intent.ACTION_VIEW, uri)
+                                context.startActivity(intent)
+                            }
                             oauthLoading = null
                         },
                         modifier = Modifier
