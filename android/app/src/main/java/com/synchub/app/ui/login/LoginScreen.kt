@@ -3,6 +3,9 @@ package com.synchub.app.ui.login
 import android.content.Intent
 import android.net.Uri
 import androidx.browser.customtabs.CustomTabsIntent
+import java.net.URLEncoder
+import java.nio.charset.StandardCharsets
+import android.content.pm.PackageManager
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
@@ -42,6 +45,29 @@ fun LoginScreen(
     val scope = rememberCoroutineScope()
     val snackbarHostState = remember { SnackbarHostState() }
     val context = LocalContext.current
+
+    fun launchOAuth(url: String) {
+        val uri = Uri.parse(url)
+        try {
+            val customTabsIntent = CustomTabsIntent.Builder().build()
+            // Prefer Chrome if installed to avoid embedded user-agent blocks
+            val chromePkg = "com.android.chrome"
+            val pm = context.packageManager
+            val hasChrome = try {
+                pm.getPackageInfo(chromePkg, PackageManager.PackageInfoFlags.of(0))
+                true
+            } catch (e: Exception) {
+                false
+            }
+            if (hasChrome) {
+                customTabsIntent.intent.setPackage(chromePkg)
+            }
+            customTabsIntent.launchUrl(context, uri)
+        } catch (e: Exception) {
+            val intent = Intent(Intent.ACTION_VIEW, uri)
+            context.startActivity(intent)
+        }
+    }
 
     Scaffold(
         snackbarHost = { SnackbarHost(snackbarHostState) },
@@ -194,14 +220,9 @@ fun LoginScreen(
                     OutlinedButton(
                         onClick = {
                             oauthLoading = "github"
-                            val authUrl = "${NetworkModule.SERVER_URL}/api/v1/auth/oauth/github/login?redirect_to=synchub://oauth"
-                            val uri = Uri.parse(authUrl)
-                            try {
-                                CustomTabsIntent.Builder().build().launchUrl(context, uri)
-                            } catch (e: Exception) {
-                                val intent = Intent(Intent.ACTION_VIEW, uri)
-                                context.startActivity(intent)
-                            }
+                            val redirectTo = URLEncoder.encode("synchub://oauth", StandardCharsets.UTF_8.toString())
+                            val authUrl = "${NetworkModule.SERVER_URL}/api/v1/auth/oauth/github/login?redirect_to=$redirectTo"
+                            launchOAuth(authUrl)
                             oauthLoading = null
                         },
                         modifier = Modifier
@@ -235,14 +256,9 @@ fun LoginScreen(
                     OutlinedButton(
                         onClick = {
                             oauthLoading = "google"
-                            val authUrl = "${NetworkModule.SERVER_URL}/api/v1/auth/oauth/google/login?redirect_to=synchub://oauth"
-                            val uri = Uri.parse(authUrl)
-                            try {
-                                CustomTabsIntent.Builder().build().launchUrl(context, uri)
-                            } catch (e: Exception) {
-                                val intent = Intent(Intent.ACTION_VIEW, uri)
-                                context.startActivity(intent)
-                            }
+                            val redirectTo = URLEncoder.encode("synchub://oauth", StandardCharsets.UTF_8.toString())
+                            val authUrl = "${NetworkModule.SERVER_URL}/api/v1/auth/oauth/google/login?redirect_to=$redirectTo"
+                            launchOAuth(authUrl)
                             oauthLoading = null
                         },
                         modifier = Modifier

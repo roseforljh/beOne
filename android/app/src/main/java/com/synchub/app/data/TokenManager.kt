@@ -13,7 +13,7 @@ class TokenManager(context: Context) {
     }
 
     fun saveToken(token: String) {
-        prefs.edit().putString(KEY_ACCESS_TOKEN, token).apply()
+        prefs.edit().putString(KEY_ACCESS_TOKEN, token).commit()
     }
 
     fun getToken(): String? {

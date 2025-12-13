@@ -60,12 +60,16 @@ import kotlinx.coroutines.launch
 import okhttp3.MediaType.Companion.toMediaTypeOrNull
 import okhttp3.RequestBody.Companion.toRequestBody
 import androidx.core.view.WindowCompat
+import android.widget.Toast
 
 class MainActivity : ComponentActivity() {
     private lateinit var webSocketService: WebSocketService
     private lateinit var fileApi: FileApi
     private lateinit var tokenManager: TokenManager
     private lateinit var conversationRepository: ConversationRepository
+
+    private var hasToken by mutableStateOf(false)
+    private var oauthJustSucceeded by mutableStateOf(false)
 
     private fun handleOAuthCallback(intent: Intent?): Boolean {
         val data = intent?.data ?: return false
@@ -75,8 +79,13 @@ class MainActivity : ComponentActivity() {
         val token = data.getQueryParameter("token")
         if (!token.isNullOrBlank()) {
             tokenManager.saveToken(token)
+            hasToken = true
+            oauthJustSucceeded = true
+            Toast.makeText(this, "OAuth 登录成功", Toast.LENGTH_SHORT).show()
             return true
         }
+
+        Toast.makeText(this, "OAuth 回调无 token: ${data}", Toast.LENGTH_LONG).show()
 
         return false
     }
@@ -87,9 +96,11 @@ class MainActivity : ComponentActivity() {
 
         // DI Injection (Manual for simplicity)
         tokenManager = TokenManager(applicationContext)
+        hasToken = tokenManager.getToken() != null
         val okHttpClient = NetworkModule.provideOkHttpClient(tokenManager)
         val retrofit = NetworkModule.provideRetrofit(okHttpClient)
         val authApi = retrofit.create(AuthApi::class.java)
+
         fileApi = retrofit.create(FileApi::class.java)
         val conversationApi = retrofit.create(com.synchub.app.network.ConversationApi::class.java)
         conversationRepository = ConversationRepository(applicationContext, conversationApi)
@@ -107,18 +118,20 @@ class MainActivity : ComponentActivity() {
             }
         }
 
+        // If this launch is from OAuth deep link, save token before composing UI.
         val oauthSaved = handleOAuthCallback(intent)
         // Handle Share Intent if present
         handleIntent(intent)
 
+        // Consume deep link intent so it won't retrigger on rotation/recreate.
         if (oauthSaved) {
-            recreate()
-            return
+            setIntent(Intent(this, MainActivity::class.java))
         }
 
         setContent {
             SyncHubTheme {
                 val navController = rememberNavController()
+
                 val navBackStackEntry by navController.currentBackStackEntryAsState()
                 val currentRoute = navBackStackEntry?.destination?.route
                 val density = LocalDensity.current
@@ -207,9 +220,19 @@ class MainActivity : ComponentActivity() {
                         }
                     }
                 ) { _ ->
+                    // OAuth成功后主动导航到Chat页面
+                    LaunchedEffect(oauthJustSucceeded) {
+                        if (oauthJustSucceeded && hasToken) {
+                            navController.navigate(Screen.Home.Chat.route) {
+                                popUpTo(Screen.Login.route) { inclusive = true }
+                            }
+                            oauthJustSucceeded = false
+                        }
+                    }
+
                     NavHost(
                         navController = navController,
-                        startDestination = if (tokenManager.getToken() != null) Screen.Home.Chat.route else Screen.Login.route,
+                        startDestination = if (hasToken) Screen.Home.Chat.route else Screen.Login.route,
                         modifier = Modifier.fillMaxSize()
                     ) {
                         composable(Screen.Login.route) {
@@ -294,7 +317,10 @@ class MainActivity : ComponentActivity() {
         handleIntent(intent)
 
         if (oauthSaved) {
-            recreate()
+            // Consume deep link intent to avoid retrigger on rotation
+            setIntent(Intent(this, MainActivity::class.java))
+            // 不再调用recreate()，让LaunchedEffect处理导航
+            // oauthJustSucceeded状态变化会触发Compose重组和导航
         }
     }
 
