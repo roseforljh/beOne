@@ -3,11 +3,24 @@ plugins {
     alias(libs.plugins.jetbrains.kotlin.android)
 }
 
+import java.util.Properties
+
 android {
     namespace = "com.synchub.app"
     compileSdk = 34
 
     defaultConfig {
+        val localProps = Properties()
+        val localPropsFile = rootProject.file("local.properties")
+        if (localPropsFile.exists()) {
+            localPropsFile.inputStream().use { localProps.load(it) }
+        }
+        val serverHost = localProps.getProperty("SERVER_HOST") ?: "192.168.0.101"
+        val serverPort = localProps.getProperty("SERVER_PORT") ?: "8000"
+
+        buildConfigField("String", "SERVER_HOST", "\"$serverHost\"")
+        buildConfigField("String", "SERVER_PORT", "\"$serverPort\"")
+
         applicationId = "com.synchub.app"
         minSdk = 26
         targetSdk = 34
@@ -22,16 +35,10 @@ android {
 
     buildTypes {
         debug {
-            // For real device testing, change this to your computer's LAN IP
-            // For emulator, use 10.0.2.2
-            buildConfigField("String", "SERVER_HOST", "\"192.168.0.101\"")
-            buildConfigField("String", "SERVER_PORT", "\"8000\"")
         }
         release {
             isMinifyEnabled = false
             proguardFiles(getDefaultProguardFile("proguard-android-optimize.txt"), "proguard-rules.pro")
-            buildConfigField("String", "SERVER_HOST", "\"your-production-server.com\"")
-            buildConfigField("String", "SERVER_PORT", "\"443\"")
         }
     }
     
