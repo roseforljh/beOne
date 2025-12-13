@@ -1,0 +1,56 @@
+<svg viewBox="0 0 200 200" xmlns="http://www.w3.org/2000/svg">
+  <defs>
+    <!-- 渐变定义 -->
+    <linearGradient id="flowGradient" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" style="stop-color:#000;stop-opacity:0.8" />
+      <stop offset="100%" style="stop-color:#000;stop-opacity:0.3" />
+    </linearGradient>
+  </defs>
+  
+  <!-- 流线型背景 - 左上 -->
+  <path d="M 20,40 Q 40,20 80,30 T 120,20" 
+        fill="none" stroke="url(#flowGradient)" stroke-width="2" opacity="0.6"/>
+  <path d="M 25,45 Q 45,25 85,35 T 125,25" 
+        fill="none" stroke="url(#flowGradient)" stroke-width="1.5" opacity="0.5"/>
+  <path d="M 30,50 Q 50,30 90,40 T 130,30" 
+        fill="none" stroke="url(#flowGradient)" stroke-width="1" opacity="0.4"/>
+  
+  <!-- 流线型背景 - 右下 -->
+  <path d="M 180,160 Q 160,180 120,170 T 80,180" 
+        fill="none" stroke="url(#flowGradient)" stroke-width="2" opacity="0.6"/>
+  <path d="M 175,155 Q 155,175 115,165 T 75,175" 
+        fill="none" stroke="url(#flowGradient)" stroke-width="1.5" opacity="0.5"/>
+  <path d="M 170,150 Q 150,170 110,160 T 70,170" 
+        fill="none" stroke="url(#flowGradient)" stroke-width="1" opacity="0.4"/>
+  
+  <!-- 流线型背景 - 穿过中心 -->
+  <path d="M 30,100 Q 60,80 100,100 T 170,100" 
+        fill="none" stroke="url(#flowGradient)" stroke-width="3" opacity="0.3"/>
+  <path d="M 30,105 Q 60,85 100,105 T 170,105" 
+        fill="none" stroke="url(#flowGradient)" stroke-width="2" opacity="0.25"/>
+  <path d="M 30,110 Q 60,90 100,110 T 170,110" 
+        fill="none" stroke="url(#flowGradient)" stroke-width="1.5" opacity="0.2"/>
+  
+  <!-- 文件图标主体 -->
+  <g transform="translate(70, 60)">
+    <!-- 文件外框 -->
+    <rect x="0" y="0" width="60" height="80" rx="4" 
+          fill="#fff" stroke="#000" stroke-width="3"/>
+    
+    <!-- 文件折角 -->
+    <path d="M 45,0 L 45,15 L 60,15 Z" 
+          fill="#000" stroke="#000" stroke-width="2"/>
+    
+    <!-- 播放/传输图标 -->
+    <path d="M 20,30 L 45,45 L 20,60 Z" 
+          fill="#000" stroke="none"/>
+    
+    <!-- 文件线条装饰 -->
+    <line x1="15" y1="25" x2="25" y2="25" 
+          stroke="#000" stroke-width="2" stroke-linecap="round"/>
+    <line x1="15" y1="65" x2="45" y2="65" 
+          stroke="#000" stroke-width="2" stroke-linecap="round"/>
+    <line x1="15" y1="72" x2="40" y2="72" 
+          stroke="#000" stroke-width="2" stroke-linecap="round"/>
+  </g>
+</svg>
