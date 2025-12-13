@@ -61,6 +61,8 @@ services:
       dockerfile: Dockerfile
     container_name: synchub-backend
     restart: unless-stopped
+    env_file:
+      - ./backend/.env
     environment:
       DATABASE_URL: postgresql+asyncpg://synchub:synchub123@postgres:5432/synchub
       REDIS_URL: redis://redis:6379/0
