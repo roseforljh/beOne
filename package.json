@@ -1,0 +1,24 @@
+{
+  "name": "beone",
+  "version": "1.0.0",
+  "description": "太极文件传输系统 - 一个以太极为主题的黑白色系文件传输系统",
+  "main": "index.js",
+  "scripts": {
+    "deploy": "node deploy-simple.js",
+    "start": "node deploy-simple.js",
+    "install:all": "cd backend && npm install && cd ../frontend && npm install",
+    "start:backend": "cd backend && npm start",
+    "start:debug": "cd backend && npm run start:debug",
+    "start:frontend": "cd frontend && npm run dev",
+    "build:frontend": "cd frontend && npm run build"
+  },
+  "keywords": [
+    "file-transfer",
+    "taiji",
+    "upload",
+    "download"
+  ],
+  "author": "",
+  "license": "MIT"
+}
+

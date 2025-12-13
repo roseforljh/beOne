@@ -1,0 +1,7 @@
+<?xml version='1.0' encoding='utf-8'?>
+<resources>
+    <string name="app_name">beOne Mobile</string>
+    <string name="title_activity_main">beOne Mobile</string>
+    <string name="package_name">com.beone.app</string>
+    <string name="custom_url_scheme">com.beone.app</string>
+</resources>

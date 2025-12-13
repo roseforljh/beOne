@@ -1,0 +1,36 @@
+# FastAPI & Server
+fastapi==0.109.0
+uvicorn[standard]==0.27.0
+python-multipart==0.0.6
+
+# Database
+sqlalchemy[asyncio]==2.0.25
+asyncpg==0.29.0
+alembic==1.13.1
+
+# Redis
+redis==5.0.1
+
+# Auth & Security
+python-jose[cryptography]==3.3.0
+passlib[bcrypt]==1.7.4
+
+# Pydantic
+pydantic==2.5.3
+pydantic-settings==2.1.0
+email-validator==2.1.0
+
+# File handling
+aiofiles==23.2.1
+python-magic==0.4.27
+
+# HTTP Client (for OAuth)
+httpx==0.26.0
+
+# MinIO (S3 compatible storage)
+minio==7.2.3
+
+# Development
+pytest==7.4.4
+pytest-asyncio==0.23.3
+httpx==0.26.0

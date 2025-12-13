@@ -1,0 +1,35 @@
+services:
+  # 后端服务 - 使用 host 网络模式（性能优化）
+  backend:
+    build:
+      context: ./backend
+      dockerfile: Dockerfile
+    container_name: beone-backend
+    network_mode: "host"
+    volumes:
+      - uploads:/app/uploads
+      - database:/app/data
+    environment:
+      - NODE_ENV=production
+      - PORT=5000
+      - JWT_SECRET=your_jwt_secret_change_in_production
+      - DB_PATH=/app/data/database.db
+      - WORKERS=4
+    restart: unless-stopped
+
+  # 前端服务 - 使用 host 网络模式（性能优化）
+  frontend:
+    build:
+      context: ./frontend
+      dockerfile: Dockerfile.host
+    container_name: beone-frontend
+    network_mode: "host"
+    depends_on:
+      - backend
+    restart: unless-stopped
+
+volumes:
+  uploads:
+    driver: local
+  database:
+    driver: local

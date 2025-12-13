@@ -1,0 +1,46 @@
+# General
+.DS_Store
+.idea/
+.vscode/
+*.swp
+*.swo
+
+# Python / Backend
+__pycache__/
+*.py[cod]
+*$py.class
+venv/
+.venv/
+env/
+backend/.env
+backend/.env.development
+backend/uploads/*
+!backend/uploads/.gitkeep
+
+# Node / Frontend
+node_modules/
+npm-debug.log
+yarn-error.log
+.next/
+out/
+build/
+dist/
+frontend/.env.local
+frontend/.env
+
+# Android
+.gradle/
+local.properties
+.idea/caches/
+.idea/libraries/
+.idea/modules/
+.idea/workspace.xml
+.idea/navEditor.xml
+.idea/assetWizardSettings.xml
+.idea/codeStyles/
+.idea/dictionaries/
+android/app/build/
+android/build/
+*.iml
+*.hprof
+.cxx/
