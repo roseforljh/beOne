@@ -217,11 +217,10 @@ export default function GalleryPage() {
           <h2 className="text-2xl font-semibold">图床画廊</h2>
           <p className="text-muted-foreground text-sm mt-1">管理公开图片，一键生成 Markdown 链接</p>
         </div>
-        <div className="relative">
+        <div className="flex items-center gap-2">
           <Button
             variant="ghost"
             size="icon"
-            className="mr-2"
             onClick={fetchImages}
             disabled={loading}
             title="刷新"
@@ -229,21 +228,23 @@ export default function GalleryPage() {
             <RefreshCw className={loading ? "h-4 w-4 animate-spin" : "h-4 w-4"} />
           </Button>
 
-          <input
-            type="file"
-            accept="image/*"
-            multiple
-            className="absolute inset-0 w-full h-full opacity-0 cursor-pointer disabled:cursor-not-allowed"
-            onChange={handleUpload}
-            disabled={uploading}
-          />
-          <Button 
-            disabled={uploading}
-            className="bg-gradient-to-r from-pink-600 to-rose-600 text-white hover:from-pink-500 hover:to-rose-500 shadow-[0_4px_20px_-4px_rgba(244,63,94,0.5)]"
-          >
-            <Plus size={18} className="mr-2" />
-            {uploading ? '上传中...' : '上传图片'}
-          </Button>
+          <div className="relative">
+            <input
+              type="file"
+              accept="image/*"
+              multiple
+              className="absolute inset-0 w-full h-full opacity-0 cursor-pointer disabled:cursor-not-allowed"
+              onChange={handleUpload}
+              disabled={uploading}
+            />
+            <Button 
+              disabled={uploading}
+              className="bg-gradient-to-r from-pink-600 to-rose-600 text-white hover:from-pink-500 hover:to-rose-500 shadow-[0_4px_20px_-4px_rgba(244,63,94,0.5)]"
+            >
+              <Plus size={18} className="mr-2" />
+              {uploading ? '上传中...' : '上传图片'}
+            </Button>
+          </div>
         </div>
       </div>
 
