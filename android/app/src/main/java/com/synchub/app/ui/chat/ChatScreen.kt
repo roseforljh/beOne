@@ -77,6 +77,8 @@ fun ChatScreen(
     val listState = rememberLazyListState()
     var showClearDialog by remember { mutableStateOf(false) }
     var showHistorySheet by remember { mutableStateOf(false) }
+    var isUploading by remember { mutableStateOf(false) }
+    var uploadProgress by remember { mutableFloatStateOf(0f) }
     val inputBarReservedHeight = 80.dp
     val density = LocalDensity.current
     val systemNavBarHeightDp = with(density) { WindowInsets.navigationBars.getBottom(density).toDp() }
@@ -89,9 +91,13 @@ fun ChatScreen(
         onResult = { uris: List<Uri> ->
             if (uris.isEmpty()) return@rememberLauncherForActivityResult
             scope.launch {
+                isUploading = true
                 for (uri in uris) {
                     try {
-                        val part = FileUtil.getMultipartBody(context, uri)
+                        uploadProgress = 0f
+                        val part = FileUtil.getMultipartBodyWithProgress(context, uri) { written, total ->
+                            if (total > 0) uploadProgress = written.toFloat() / total
+                        }
                         if (part == null) {
                             Toast.makeText(context, "无法读取文件", Toast.LENGTH_SHORT).show()
                             continue
@@ -107,6 +113,8 @@ fun ChatScreen(
                         Toast.makeText(context, "上传失败: ${e.message}", Toast.LENGTH_SHORT).show()
                     }
                 }
+                isUploading = false
+                uploadProgress = 0f
             }
         }
     )
@@ -317,11 +325,8 @@ fun ChatScreen(
             }
         }
 
-        // Input Bar
-        Surface(
-            shape = RoundedCornerShape(28.dp),
-            color = MaterialTheme.colorScheme.surfaceVariant,
-            tonalElevation = 2.dp,
+        // Upload Progress + Input Bar
+        Column(
             modifier = Modifier
                 .align(Alignment.BottomCenter)
                 .fillMaxWidth()
@@ -330,79 +335,106 @@ fun ChatScreen(
                 .windowInsetsPadding(WindowInsets.navigationBars)
                 .padding(bottom = effectiveBottomNavPad)
         ) {
-            Row(
-                modifier = Modifier.padding(horizontal = 4.dp, vertical = 4.dp),
-                verticalAlignment = Alignment.CenterVertically
-            ) {
-                IconButton(
-                    onClick = { pickFileLauncher.launch(arrayOf("*/*")) },
-                    modifier = Modifier.size(40.dp)
+            if (isUploading) {
+                Surface(
+                    shape = RoundedCornerShape(12.dp),
+                    color = MaterialTheme.colorScheme.surfaceVariant,
+                    modifier = Modifier.fillMaxWidth().padding(bottom = 8.dp)
                 ) {
-                    Icon(Icons.Filled.AttachFile, "附件", tint = MaterialTheme.colorScheme.onSurfaceVariant)
-                }
-
-                // Input Field
-                Box(
-                    contentAlignment = Alignment.CenterStart,
-                    modifier = Modifier
-                        .weight(1f)
-                        .heightIn(min = 40.dp, max = 120.dp)
-                        .padding(vertical = 8.dp)
-                ) {
-                    if (input.isEmpty()) {
-                        Text(
-                            "输入消息...",
-                            style = MaterialTheme.typography.bodyMedium,
-                            color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.5f)
+                    Column(modifier = Modifier.padding(12.dp)) {
+                        Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
+                            Text("上传中...", style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                            Text("${(uploadProgress * 100).toInt()}%", style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                        }
+                        Spacer(Modifier.height(4.dp))
+                        LinearProgressIndicator(
+                            progress = uploadProgress,
+                            modifier = Modifier.fillMaxWidth().height(4.dp).clip(RoundedCornerShape(2.dp)),
+                            color = MaterialTheme.colorScheme.primary,
+                            trackColor = MaterialTheme.colorScheme.surface
                         )
                     }
-                    androidx.compose.foundation.text.BasicTextField(
-                        value = input,
-                        onValueChange = { input = it },
-                        textStyle = MaterialTheme.typography.bodyMedium.copy(
-                            color = MaterialTheme.colorScheme.onSurface
-                        ),
-                        cursorBrush = androidx.compose.ui.graphics.SolidColor(MaterialTheme.colorScheme.primary),
-                        modifier = Modifier
-                            .fillMaxWidth()
-                            .verticalScroll(rememberScrollState())
-                    )
                 }
-
-                // Send Button
-                val sendButtonAlpha by animateFloatAsState(
-                    targetValue = if (input.isNotBlank()) 1f else 0.3f,
-                    animationSpec = tween(150),
-                    label = "sendAlpha"
-                )
-                val sendButtonScale by animateFloatAsState(
-                    targetValue = if (input.isNotBlank()) 1f else 0.8f,
-                    animationSpec = tween(150),
-                    label = "sendScale"
-                )
-
-                Box(
-                    modifier = Modifier
-                        .padding(end = 4.dp)
-                        .size(40.dp)
-                        .scale(sendButtonScale)
-                        .alpha(sendButtonAlpha)
-                        .clip(CircleShape)
-                        .background(MaterialTheme.colorScheme.primary)
-                        .clickable(enabled = input.isNotBlank()) {
-                            if (input.isNotBlank()) {
-                                webSocketService.sendText(input)
-                                input = ""
-                            }
-                        },
-                    contentAlignment = Alignment.Center
+            }
+            Surface(
+                shape = RoundedCornerShape(28.dp),
+                color = MaterialTheme.colorScheme.surfaceVariant,
+                tonalElevation = 2.dp
+            ) {
+                Row(
+                    modifier = Modifier.padding(horizontal = 4.dp, vertical = 4.dp),
+                    verticalAlignment = Alignment.CenterVertically
                 ) {
-                    Icon(
-                        Icons.Filled.ArrowUpward,
-                        "发送",
-                        tint = MaterialTheme.colorScheme.onPrimary,
-                        modifier = Modifier.size(20.dp)
+                    IconButton(
+                        onClick = { pickFileLauncher.launch(arrayOf("*/*")) },
+                        modifier = Modifier.size(40.dp)
+                    ) {
+                        Icon(Icons.Filled.AttachFile, "附件", tint = MaterialTheme.colorScheme.onSurfaceVariant)
+                    }
+
+                    // Input Field
+                    Box(
+                        contentAlignment = Alignment.CenterStart,
+                        modifier = Modifier
+                            .weight(1f)
+                            .heightIn(min = 40.dp, max = 120.dp)
+                            .padding(vertical = 8.dp)
+                    ) {
+                        if (input.isEmpty()) {
+                            Text(
+                                "输入消息...",
+                                style = MaterialTheme.typography.bodyMedium,
+                                color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.5f)
+                            )
+                        }
+                        androidx.compose.foundation.text.BasicTextField(
+                            value = input,
+                            onValueChange = { input = it },
+                            textStyle = MaterialTheme.typography.bodyMedium.copy(
+                                color = MaterialTheme.colorScheme.onSurface
+                            ),
+                            cursorBrush = androidx.compose.ui.graphics.SolidColor(MaterialTheme.colorScheme.primary),
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .verticalScroll(rememberScrollState())
+                        )
+                    }
+
+                    // Send Button
+                    val sendButtonAlpha by animateFloatAsState(
+                        targetValue = if (input.isNotBlank()) 1f else 0.3f,
+                        animationSpec = tween(150),
+                        label = "sendAlpha"
                     )
+                    val sendButtonScale by animateFloatAsState(
+                        targetValue = if (input.isNotBlank()) 1f else 0.8f,
+                        animationSpec = tween(150),
+                        label = "sendScale"
+                    )
+
+                    Box(
+                        modifier = Modifier
+                            .padding(end = 4.dp)
+                            .size(40.dp)
+                            .scale(sendButtonScale)
+                            .alpha(sendButtonAlpha)
+                            .clip(CircleShape)
+                            .background(MaterialTheme.colorScheme.primary)
+                            .clickable(enabled = input.isNotBlank()) {
+                                if (input.isNotBlank()) {
+                                    webSocketService.sendText(input)
+                                    input = ""
+                                }
+                            },
+                        contentAlignment = Alignment.Center
+                    ) {
+                        Icon(
+                            Icons.Filled.ArrowUpward,
+                            "发送",
+                            tint = MaterialTheme.colorScheme.onPrimary,
+                            modifier = Modifier.size(20.dp)
+                        )
+                    }
                 }
             }
         }
