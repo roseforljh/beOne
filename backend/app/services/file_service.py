@@ -1,12 +1,15 @@
 import os
 import secrets
 import aiofiles
+import hashlib
+from io import BytesIO
 from pathlib import Path
 from datetime import datetime
 from typing import Optional
 from fastapi import UploadFile
-from fastapi.responses import StreamingResponse
+from fastapi.responses import StreamingResponse, Response
 from sqlalchemy.ext.asyncio import AsyncSession
+from PIL import Image
 
 from app.config import settings
 from app.models.file import File
@@ -129,3 +132,68 @@ class FileService:
         # 删除数据库记录
         await self.db.delete(file_record)
         await self.db.commit()
+
+    def _get_thumb_path(self, file_record: File, size: int) -> Path:
+        """获取缩略图缓存路径"""
+        thumb_dir = self.upload_dir / "thumbs"
+        thumb_dir.mkdir(parents=True, exist_ok=True)
+        # 使用文件ID和尺寸生成缩略图文件名
+        thumb_name = f"{file_record.id}_{size}.webp"
+        return thumb_dir / thumb_name
+
+    async def get_thumbnail(self, file_record: File, size: int = 300) -> Response:
+        """生成或返回缓存的缩略图"""
+        # 限制尺寸范围
+        size = max(50, min(800, size))
+        
+        thumb_path = self._get_thumb_path(file_record, size)
+        
+        # 如果缩略图已存在，直接返回
+        if thumb_path.exists():
+            async with aiofiles.open(thumb_path, "rb") as f:
+                thumb_data = await f.read()
+            return Response(
+                content=thumb_data,
+                media_type="image/webp",
+                headers={
+                    "Cache-Control": "public, max-age=31536000, immutable",
+                    "Content-Length": str(len(thumb_data)),
+                }
+            )
+        
+        # 生成缩略图
+        file_path = Path(file_record.file_path)
+        if not file_path.exists():
+            raise FileNotFoundError("File not found on disk")
+        
+        try:
+            async with aiofiles.open(file_path, "rb") as f:
+                img_data = await f.read()
+            
+            img = Image.open(BytesIO(img_data))
+            img.thumbnail((size, size), Image.Resampling.LANCZOS)
+            
+            # 转换为 RGB（处理 RGBA/P 模式）
+            if img.mode in ("RGBA", "P"):
+                img = img.convert("RGB")
+            
+            # 保存为 WebP 格式（更小体积）
+            buffer = BytesIO()
+            img.save(buffer, format="WEBP", quality=80, optimize=True)
+            thumb_data = buffer.getvalue()
+            
+            # 缓存到磁盘
+            async with aiofiles.open(thumb_path, "wb") as f:
+                await f.write(thumb_data)
+            
+            return Response(
+                content=thumb_data,
+                media_type="image/webp",
+                headers={
+                    "Cache-Control": "public, max-age=31536000, immutable",
+                    "Content-Length": str(len(thumb_data)),
+                }
+            )
+        except Exception:
+            # 如果生成失败，返回原图
+            return await self.stream_file(file_record, inline=True)

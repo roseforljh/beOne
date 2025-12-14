@@ -35,3 +35,36 @@ async def get_public_file(
     file_service = FileService(db)
     inline = (file_record.mime_type or "").startswith("image/")
     return await file_service.stream_file(file_record, inline=inline)
+
+
+@router.get("/p/{share_token}/thumb")
+async def get_public_file_thumbnail(
+    share_token: str,
+    size: int = 300,
+    db: AsyncSession = Depends(get_db)
+):
+    """
+    公开图片缩略图接口（带缓存）
+    """
+    result = await db.execute(
+        select(FileModel)
+        .where(FileModel.share_token == share_token)
+        .where(FileModel.is_public == True)
+        .where(FileModel.deleted_at.is_(None))
+    )
+    file_record = result.scalar_one_or_none()
+    
+    if not file_record:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="File not found or not public"
+        )
+    
+    if not (file_record.mime_type or "").startswith("image/"):
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="Not an image file"
+        )
+    
+    file_service = FileService(db)
+    return await file_service.get_thumbnail(file_record, size)

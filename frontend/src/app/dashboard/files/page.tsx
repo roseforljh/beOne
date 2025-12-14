@@ -16,7 +16,7 @@ import {
   Dialog,
   DialogContent,
 } from '@/components/ui/dialog';
-import { filesApi } from '@/lib/api';
+import { filesApi, API_BASE_URL } from '@/lib/api';
 import { wsClient } from '@/lib/websocket';
 import { 
   Upload, 
@@ -294,8 +294,13 @@ export default function CloudDrivePage() {
   const isImage = (mimeType: string) => mimeType?.startsWith('image/');
   const getThumbSrc = (file: FileItem) => {
     if (!isImage(file.mime_type)) return null;
-    if (file.is_public && file.public_url) return file.public_url;
-    return privateThumbUrls[file.id] || file.download_url;
+    // 使用缩略图接口优化网络性能
+    if (file.is_public && file.public_url) {
+      const base = file.public_url.startsWith('http') ? file.public_url : `${API_BASE_URL}${file.public_url}`;
+      return `${base}/thumb?size=300`;
+    }
+    // 私有图片使用 API 缩略图接口
+    return `${API_BASE_URL}/api/v1/files/${file.id}/thumb?size=300`;
   };
 
   return (

@@ -129,6 +129,32 @@ async def get_file(
     return await file_service.stream_file(file_record)
 
 
+@router.get("/{file_id}/thumb")
+async def get_file_thumbnail(
+    file_id: UUID,
+    size: int = 300,
+    db: AsyncSession = Depends(get_db),
+    current_user: User = Depends(get_current_user)
+):
+    """获取图片缩略图（带缓存）"""
+    result = await db.execute(
+        select(FileModel)
+        .where(FileModel.id == file_id)
+        .where(FileModel.user_id == current_user.id)
+        .where(FileModel.deleted_at.is_(None))
+    )
+    file_record = result.scalar_one_or_none()
+    
+    if not file_record:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="File not found")
+    
+    if not (file_record.mime_type or "").startswith("image/"):
+        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="Not an image file")
+    
+    file_service = FileService(db)
+    return await file_service.get_thumbnail(file_record, size)
+
+
 @router.patch("/{file_id}", response_model=FileSchemaResponse)
 async def update_file(
     file_id: UUID,

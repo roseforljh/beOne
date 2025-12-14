@@ -424,11 +424,20 @@ fun GalleryImageCard(
                     .aspectRatio(1f)
                     .background(MaterialTheme.colorScheme.surfaceVariant)
             ) {
+                // 使用缩略图接口优化网络性能
+                val thumbUrl = if (image.public_url != null) {
+                    val base = if (image.public_url.startsWith("http")) image.public_url else "${NetworkModule.SERVER_URL}${image.public_url}"
+                    "${base}/thumb?size=300"
+                } else {
+                    "${NetworkModule.SERVER_URL}/api/v1/files/${image.id}/thumb?size=300"
+                }
                 AsyncImage(
                     model = ImageRequest.Builder(LocalContext.current)
-                        .data("${NetworkModule.SERVER_URL}${image.download_url}")
+                        .data(thumbUrl)
                         .addHeader("Authorization", "Bearer ${tokenManager.getToken()}")
                         .crossfade(true)
+                        .memoryCacheKey("thumb_${image.id}")
+                        .diskCacheKey("thumb_${image.id}")
                         .build(),
                     contentDescription = image.filename,
                     contentScale = ContentScale.Crop,

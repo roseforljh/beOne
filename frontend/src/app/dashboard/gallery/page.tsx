@@ -51,6 +51,16 @@ export default function GalleryPage() {
     return publicUrl.startsWith('http') ? publicUrl : `${API_BASE_URL}${publicUrl}`;
   };
 
+  const getThumbUrl = (img: FileItem) => {
+    // 优先使用公开缩略图（无需认证），否则使用私有缩略图
+    if (img.public_url) {
+      const base = img.public_url.startsWith('http') ? img.public_url : `${API_BASE_URL}${img.public_url}`;
+      return `${base}/thumb?size=300`;
+    }
+    // 私有图片使用 API 缩略图接口
+    return `${API_BASE_URL}/api/v1/files/${img.id}/thumb?size=300`;
+  };
+
   const fetchImages = async () => {
     setLoading(true);
     try {
@@ -324,7 +334,7 @@ export default function GalleryPage() {
                   )}
                   {/* eslint-disable-next-line @next/next/no-img-element */}
                   <img 
-                    src={img.public_url ? getShareUrl(img.public_url) : img.download_url} 
+                    src={getThumbUrl(img)} 
                     className={`w-full h-full object-cover group-hover:scale-105 transition-transform duration-700 ease-out ${loadingImages.has(img.id) ? 'opacity-0' : 'opacity-100'}`}
                     alt={img.filename}
                     onLoad={() => setLoadingImages(prev => { const next = new Set(prev); next.delete(img.id); return next; })}

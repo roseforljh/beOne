@@ -474,11 +474,20 @@ fun FileCard(
                 contentAlignment = Alignment.Center
             ) {
                 if (file.mime_type?.startsWith("image/") == true && file.download_url != null) {
+                    // 使用缩略图接口优化网络性能
+                    val thumbUrl = if (file.public_url != null) {
+                        val base = if (file.public_url.startsWith("http")) file.public_url else "${NetworkModule.SERVER_URL}${file.public_url}"
+                        "${base}/thumb?size=300"
+                    } else {
+                        "${NetworkModule.SERVER_URL}/api/v1/files/${file.id}/thumb?size=300"
+                    }
                     AsyncImage(
                         model = ImageRequest.Builder(LocalContext.current)
-                            .data("${NetworkModule.SERVER_URL}${file.download_url}")
+                            .data(thumbUrl)
                             .addHeader("Authorization", "Bearer ${tokenManager.getToken()}")
                             .crossfade(true)
+                            .memoryCacheKey("thumb_${file.id}")
+                            .diskCacheKey("thumb_${file.id}")
                             .build(),
                         contentDescription = file.filename,
                         contentScale = ContentScale.Crop,

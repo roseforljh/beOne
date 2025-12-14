@@ -23,6 +23,7 @@ email-validator==2.1.0
 # File handling
 aiofiles==23.2.1
 python-magic==0.4.27
+Pillow==10.2.0
 
 # HTTP Client (for OAuth)
 httpx==0.26.0
