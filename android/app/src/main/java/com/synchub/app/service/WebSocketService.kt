@@ -38,7 +38,9 @@ class WebSocketService(
     // 使用 BuildConfig 中配置的服务器地址
     private val serverHost = BuildConfig.SERVER_HOST
     private val serverPort = BuildConfig.SERVER_PORT
-    private val WS_URL = "ws://$serverHost:$serverPort/ws/"
+    private val wsScheme = if (serverPort == "443") "wss" else "ws"
+    private val wsPortPart = if (serverPort == "80" || serverPort == "443") "" else ":$serverPort"
+    private val WS_URL = "$wsScheme://$serverHost$wsPortPart/ws/"
     
     // 重连配置
     private var reconnectAttempts = 0

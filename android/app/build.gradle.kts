@@ -15,8 +15,12 @@ android {
         if (localPropsFile.exists()) {
             localPropsFile.inputStream().use { localProps.load(it) }
         }
-        val serverHost = localProps.getProperty("SERVER_HOST") ?: "192.168.0.101"
-        val serverPort = localProps.getProperty("SERVER_PORT") ?: "8000"
+        val serverHost = System.getenv("SERVER_HOST")?.takeIf { it.isNotBlank() }
+            ?: localProps.getProperty("SERVER_HOST")
+            ?: "192.168.0.101"
+        val serverPort = System.getenv("SERVER_PORT")?.takeIf { it.isNotBlank() }
+            ?: localProps.getProperty("SERVER_PORT")
+            ?: "8000"
 
         buildConfigField("String", "SERVER_HOST", "\"$serverHost\"")
         buildConfigField("String", "SERVER_PORT", "\"$serverPort\"")
