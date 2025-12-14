@@ -8,7 +8,7 @@ import { Toast as CapacitorToast } from '@capacitor/toast';
 import ConfirmDialog from './ConfirmDialog';
 import Toast from './Toast';
 
-async function saveBlobWithPicker(blob, filename) {
+async function downloadWithPicker({ url, filename, blobPromise }) {
   const picker = window?.showSaveFilePicker;
   if (typeof picker === 'function') {
     try {
@@ -25,6 +25,7 @@ async function saveBlobWithPicker(blob, filename) {
           : undefined,
       });
       const writable = await handle.createWritable();
+      const blob = await blobPromise();
       await writable.write(blob);
       await writable.close();
       return;
@@ -34,14 +35,15 @@ async function saveBlobWithPicker(blob, filename) {
     }
   }
 
-  const url = URL.createObjectURL(blob);
+  const blob = await blobPromise();
+  const objectUrl = URL.createObjectURL(blob);
   const a = document.createElement('a');
-  a.href = url;
+  a.href = objectUrl;
   a.download = filename || 'download';
   document.body.appendChild(a);
   a.click();
   a.remove();
-  URL.revokeObjectURL(url);
+  URL.revokeObjectURL(objectUrl);
 }
 
 export default function FileCard({ file, onUpdate, onDelete, onPreview }) {
@@ -166,10 +168,15 @@ export default function FileCard({ file, onUpdate, onDelete, onPreview }) {
         });
       }
     } else {
-      const response = await axiosInstance.get(`/api/files/${file.id}/download`, {
-        responseType: 'blob',
+      const url = `/api/files/${file.id}/download`;
+      await downloadWithPicker({
+        url,
+        filename: file.original_name,
+        blobPromise: async () => {
+          const response = await axiosInstance.get(url, { responseType: 'blob' });
+          return response.data;
+        },
       });
-      await saveBlobWithPicker(response.data, file.original_name);
     }
   };
 

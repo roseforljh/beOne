@@ -2,7 +2,7 @@ import { useState, useEffect } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { api } from '../utils/api';
 
-async function saveBlobWithPicker(blob, filename) {
+async function downloadWithPicker({ url, filename, blobPromise }) {
   const picker = window?.showSaveFilePicker;
   if (typeof picker === 'function') {
     try {
@@ -19,6 +19,7 @@ async function saveBlobWithPicker(blob, filename) {
           : undefined,
       });
       const writable = await handle.createWritable();
+      const blob = await blobPromise();
       await writable.write(blob);
       await writable.close();
       return;
@@ -28,14 +29,15 @@ async function saveBlobWithPicker(blob, filename) {
     }
   }
 
-  const url = URL.createObjectURL(blob);
+  const blob = await blobPromise();
+  const objectUrl = URL.createObjectURL(blob);
   const a = document.createElement('a');
-  a.href = url;
+  a.href = objectUrl;
   a.download = filename || 'download';
   document.body.appendChild(a);
   a.click();
   a.remove();
-  URL.revokeObjectURL(url);
+  URL.revokeObjectURL(objectUrl);
 }
 
 export default function FilePreview({ file, onClose }) {
@@ -83,10 +85,15 @@ export default function FilePreview({ file, onClose }) {
 
   const handleDownload = async () => {
     const url = api.getDownloadUrl(file.id);
-    const resp = await fetch(url);
-    if (!resp.ok) throw new Error(`HTTP ${resp.status}`);
-    const blob = await resp.blob();
-    await saveBlobWithPicker(blob, file.original_name);
+    await downloadWithPicker({
+      url,
+      filename: file.original_name,
+      blobPromise: async () => {
+        const resp = await fetch(url);
+        if (!resp.ok) throw new Error(`HTTP ${resp.status}`);
+        return await resp.blob();
+      },
+    });
   };
 
   return (

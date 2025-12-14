@@ -12,7 +12,7 @@ import { cn } from '@/lib/utils';
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from '@/components/ui/dropdown-menu';
 import { ConversationSidebar } from '@/components/ConversationSidebar';
 
-async function saveBlobWithPicker(blob: Blob, filename?: string) {
+async function downloadWithPicker(blobPromise: () => Promise<Blob>, filename?: string) {
   const picker = (window as any)?.showSaveFilePicker;
   if (typeof picker === 'function') {
     try {
@@ -30,6 +30,7 @@ async function saveBlobWithPicker(blob: Blob, filename?: string) {
           : undefined,
       });
       const writable = await handle.createWritable();
+      const blob = await blobPromise();
       await writable.write(blob);
       await writable.close();
       return;
@@ -39,6 +40,7 @@ async function saveBlobWithPicker(blob: Blob, filename?: string) {
     }
   }
 
+  const blob = await blobPromise();
   const url = URL.createObjectURL(blob);
   const a = document.createElement('a');
   a.href = url;
@@ -240,8 +242,11 @@ export default function ChatPage() {
   const downloadById = async (fileId?: string, filename?: string) => {
     if (!fileId) return;
     try {
-      const { blob, filename: inferred } = await filesApi.download(fileId);
-      await saveBlobWithPicker(blob, filename || inferred || 'download');
+      const name = filename || 'download';
+      await downloadWithPicker(async () => {
+        const { blob } = await filesApi.download(fileId);
+        return blob;
+      }, name);
     } catch (e) {
       console.error(e);
       toast.error('下载失败');

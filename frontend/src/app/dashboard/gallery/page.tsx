@@ -71,17 +71,25 @@ export default function GalleryPage() {
   }, []);
 
   const handleUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
-    const file = e.target.files?.[0];
-    if (!file) return;
+    const selected = Array.from(e.target.files || []);
+    if (selected.length === 0) return;
 
-    if (!file.type.startsWith('image/')) {
+    const imagesToUpload = selected.filter((f) => f.type.startsWith('image/'));
+    const skipped = selected.length - imagesToUpload.length;
+    if (imagesToUpload.length === 0) {
       toast.error('请选择图片文件');
+      e.target.value = '';
       return;
+    }
+    if (skipped > 0) {
+      toast.message(`已忽略 ${skipped} 个非图片文件`);
     }
 
     setUploading(true);
     try {
-      await filesApi.upload(file, true, 'Web', wsClient.getClientId(), false, 'gallery');
+      for (const file of imagesToUpload) {
+        await filesApi.upload(file, true, 'Web', wsClient.getClientId(), false, 'gallery');
+      }
       toast.success('图片上传成功');
       fetchImages();
     } catch {

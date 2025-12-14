@@ -84,26 +84,29 @@ fun GalleryScreen(
         }
     }
 
-    val launcher = rememberLauncherForActivityResult(contract = ActivityResultContracts.GetContent()) { uri ->
-        uri?.let {
-            scope.launch {
-                isUploading = true
-                try {
-                    val part = FileUtil.getMultipartBody(context, it)
-                    if (part != null) {
-                        val isPublic = "true".toRequestBody("text/plain".toMediaTypeOrNull())
-                        val notifyWs = "false".toRequestBody("text/plain".toMediaTypeOrNull())
-                        val source = "gallery".toRequestBody("text/plain".toMediaTypeOrNull())
-                        val deviceName = "Android".toRequestBody("text/plain".toMediaTypeOrNull())
-                        val clientIdPart = clientId.toRequestBody("text/plain".toMediaTypeOrNull())
+    val launcher = rememberLauncherForActivityResult(contract = ActivityResultContracts.GetMultipleContents()) { uris ->
+        if (uris.isNullOrEmpty()) return@rememberLauncherForActivityResult
+
+        scope.launch {
+            isUploading = true
+            try {
+                val isPublic = "true".toRequestBody("text/plain".toMediaTypeOrNull())
+                val notifyWs = "false".toRequestBody("text/plain".toMediaTypeOrNull())
+                val source = "gallery".toRequestBody("text/plain".toMediaTypeOrNull())
+                val deviceName = "Android".toRequestBody("text/plain".toMediaTypeOrNull())
+                val clientIdPart = clientId.toRequestBody("text/plain".toMediaTypeOrNull())
+
+                for (uri in uris) {
+                    try {
+                        val part = FileUtil.getMultipartBody(context, uri) ?: continue
                         fileApi.uploadFile(part, isPublic, notifyWs, source, deviceName, clientIdPart)
-                        fetchImages()
+                    } catch (e: Exception) {
+                        e.printStackTrace()
                     }
-                } catch (e: Exception) {
-                    e.printStackTrace()
-                } finally {
-                    isUploading = false
                 }
+                fetchImages()
+            } finally {
+                isUploading = false
             }
         }
     }

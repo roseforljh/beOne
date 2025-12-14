@@ -117,12 +117,14 @@ export default function CloudDrivePage() {
   }, []);
 
   const handleUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
-    const file = e.target.files?.[0];
-    if (!file) return;
+    const selected = Array.from(e.target.files || []);
+    if (selected.length === 0) return;
 
     setUploading(true);
     try {
-      await filesApi.upload(file, false, 'Web', wsClient.getClientId(), false, 'drive');
+      for (const file of selected) {
+        await filesApi.upload(file, false, 'Web', wsClient.getClientId(), false, 'drive');
+      }
       toast.success('文件上传成功');
       fetchFiles();
     } catch {
@@ -292,6 +294,7 @@ export default function CloudDrivePage() {
           <div className="relative">
             <input
               type="file"
+              multiple
               className="absolute inset-0 w-full h-full opacity-0 cursor-pointer disabled:cursor-not-allowed"
               onChange={handleUpload}
               disabled={uploading}
