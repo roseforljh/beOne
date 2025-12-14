@@ -35,7 +35,9 @@ class WebSocketClient {
     this.currentToken = token;
     this.setConnectionState('connecting');
 
-    const apiBaseUrl = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8000';
+    // 优先使用环境变量，否则使用当前页面域名
+    const apiBaseUrl = process.env.NEXT_PUBLIC_API_URL || 
+      (typeof window !== 'undefined' ? window.location.origin : 'http://localhost:8000');
     const derivedWsBaseUrl = apiBaseUrl.replace(/^http:/i, 'ws:').replace(/^https:/i, 'wss:');
     const wsUrl = process.env.NEXT_PUBLIC_WS_URL || derivedWsBaseUrl;
     this.ws = new WebSocket(`${wsUrl}/ws/${this.clientId}?token=${token}`);
