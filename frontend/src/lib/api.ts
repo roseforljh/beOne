@@ -104,7 +104,11 @@ export const filesApi = {
     deviceName: string = 'Web',
     clientId?: string,
     notifyWs: boolean = true,
-    source: 'drive' | 'gallery' | 'chat' = 'drive'
+    source: 'drive' | 'gallery' | 'chat' = 'drive',
+    options?: {
+      onProgress?: (percent: number) => void;
+      signal?: AbortSignal;
+    }
   ) => {
     const formData = new FormData();
     formData.append('file', file);
@@ -118,6 +122,13 @@ export const filesApi = {
     
     const response = await api.post('/api/v1/files/upload', formData, {
       headers: { 'Content-Type': 'multipart/form-data' },
+      signal: options?.signal,
+      onUploadProgress: (evt) => {
+        const total = evt.total ?? 0;
+        if (!total) return;
+        const percent = Math.min(100, Math.max(0, Math.round((evt.loaded / total) * 100)));
+        options?.onProgress?.(percent);
+      },
     });
     if (response.data?.file) {
       return { ...response.data, file: normalizeFile(response.data.file) };

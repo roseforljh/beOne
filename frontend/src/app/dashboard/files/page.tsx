@@ -49,11 +49,21 @@ interface FileItem {
   public_url: string | null;
 }
 
+type UploadStatus = 'pending' | 'uploading' | 'success' | 'error';
+type UploadTask = {
+  id: string;
+  file: File;
+  progress: number;
+  status: UploadStatus;
+  error?: string;
+};
+
 export default function CloudDrivePage() {
   const [files, setFiles] = useState<FileItem[]>([]);
   const [loading, setLoading] = useState(true);
   const [viewMode, setViewMode] = useState<'grid' | 'list'>('grid');
   const [uploading, setUploading] = useState(false);
+  const [uploadTasks, setUploadTasks] = useState<UploadTask[]>([]);
   const [searchQuery, setSearchQuery] = useState('');
   const [previewFile, setPreviewFile] = useState<FileItem | null>(null);
   const [privateThumbUrls, setPrivateThumbUrls] = useState<Record<string, string>>({});
@@ -116,19 +126,63 @@ export default function CloudDrivePage() {
     };
   }, []);
 
+  const uploadSingle = async (taskId: string) => {
+    const task = uploadTasks.find(t => t.id === taskId);
+    if (!task) return;
+
+    setUploadTasks(prev => prev.map(t => t.id === taskId ? { ...t, status: 'uploading' as UploadStatus, progress: 0, error: undefined } : t));
+    try {
+      await filesApi.upload(task.file, false, 'Web', wsClient.getClientId(), false, 'drive', {
+        onProgress: (p) => {
+          setUploadTasks(prev => prev.map(t => t.id === taskId ? { ...t, progress: p } : t));
+        }
+      });
+      setUploadTasks(prev => prev.map(t => t.id === taskId ? { ...t, status: 'success' as UploadStatus, progress: 100 } : t));
+      // 若全部成功，自动清空队列
+      setUploadTasks(prev => {
+        const next = prev.map(t => t.id === taskId ? { ...t, status: 'success' as UploadStatus, progress: 100 } : t);
+        return next.length > 0 && next.every(x => x.status === 'success') ? [] : next;
+      });
+    } catch (e: any) {
+      setUploadTasks(prev => prev.map(t => t.id === taskId ? { ...t, status: 'error' as UploadStatus, error: e?.message || '上传失败' } : t));
+    }
+  };
+
   const handleUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const selected = Array.from(e.target.files || []);
     if (selected.length === 0) return;
 
+    const tasks: UploadTask[] = selected.map((file) => ({
+      id: `${Date.now()}-${Math.random().toString(16).slice(2)}`,
+      file,
+      progress: 0,
+      status: 'pending' as UploadStatus,
+    }));
+
+    setUploadTasks(tasks);
     setUploading(true);
     try {
-      for (const file of selected) {
-        await filesApi.upload(file, false, 'Web', wsClient.getClientId(), false, 'drive');
+      for (const t of tasks) {
+        // eslint-disable-next-line no-await-in-loop
+        await (async () => {
+          setUploadTasks(prev => prev.map(x => x.id === t.id ? { ...x, status: 'uploading' as UploadStatus } : x));
+          await filesApi.upload(t.file, false, 'Web', wsClient.getClientId(), false, 'drive', {
+            onProgress: (p) => {
+              setUploadTasks(prev => prev.map(x => x.id === t.id ? { ...x, progress: p } : x));
+            }
+          });
+          setUploadTasks(prev => prev.map(x => x.id === t.id ? { ...x, status: 'success' as UploadStatus, progress: 100 } : x));
+        })();
       }
-      toast.success('文件上传成功');
+
+      toast.success('文件上传完成');
       fetchFiles();
+      // 若全部成功，自动清空队列（保留短暂显示）
+      setTimeout(() => {
+        setUploadTasks(prev => (prev.length > 0 && prev.every(x => x.status === 'success')) ? [] : prev);
+      }, 800);
     } catch {
-      toast.error('上传失败');
+      toast.error('部分文件上传失败');
     } finally {
       setUploading(false);
       e.target.value = '';
@@ -306,6 +360,50 @@ export default function CloudDrivePage() {
           </div>
         </div>
       </div>
+
+      {uploadTasks.length > 0 && (
+        <Card className="p-4">
+          <div className="flex items-center justify-between mb-3">
+            <div className="text-sm font-medium">上传队列</div>
+            <div className="flex items-center gap-3">
+              <div className="text-xs text-muted-foreground">{uploadTasks.filter(t => t.status === 'success').length}/{uploadTasks.length}</div>
+              <Button size="sm" variant="ghost" className="h-7 px-2" onClick={() => setUploadTasks([])}>
+                关闭
+              </Button>
+            </div>
+          </div>
+          <div className="space-y-3">
+            {uploadTasks.map((t) => (
+              <div key={t.id} className="rounded-lg border border-border/60 p-3">
+                <div className="flex items-center justify-between gap-3">
+                  <div className="min-w-0">
+                    <div className="text-sm font-medium truncate">{t.file.name}</div>
+                    <div className="text-xs text-muted-foreground">{t.status === 'error' ? (t.error || '上传失败') : t.status}</div>
+                  </div>
+                  <div className="flex items-center gap-2">
+                    {t.status === 'error' && (
+                      <Button size="sm" variant="outline" className="h-8" onClick={() => uploadSingle(t.id)}>
+                        <RefreshCw className="h-4 w-4 mr-1" />
+                        重试
+                      </Button>
+                    )}
+                    <div className="text-xs font-mono w-10 text-right">{t.progress}%</div>
+                  </div>
+                </div>
+                <div className="mt-2 h-2 w-full rounded-full bg-muted overflow-hidden">
+                  <div
+                    className={cn(
+                      'h-full transition-all',
+                      t.status === 'error' ? 'bg-red-500' : t.status === 'success' ? 'bg-green-500' : 'bg-primary'
+                    )}
+                    style={{ width: `${Math.min(100, Math.max(0, t.progress))}%` }}
+                  />
+                </div>
+              </div>
+            ))}
+          </div>
+        </Card>
+      )}
 
       {/* Files Grid/List */}
       <ScrollArea className="flex-1 -mx-6 px-6">

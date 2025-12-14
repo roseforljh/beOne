@@ -1,14 +1,17 @@
 package com.synchub.app.ui.files
 
+import android.net.Uri
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.background
+import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.grid.GridCells
 import androidx.compose.foundation.lazy.grid.LazyVerticalGrid
 import androidx.compose.foundation.lazy.grid.items
 import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Add
 import androidx.compose.material.icons.filled.Delete
@@ -37,9 +40,21 @@ import com.synchub.app.network.FileItem
 import com.synchub.app.network.FileUpdateRequest
 import com.synchub.app.network.NetworkModule
 import com.synchub.app.utils.FileUtil
+import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
+import kotlinx.coroutines.withContext
 import okhttp3.MediaType.Companion.toMediaTypeOrNull
 import okhttp3.RequestBody.Companion.toRequestBody
+
+private enum class UploadStatus { PENDING, UPLOADING, SUCCESS, ERROR }
+
+private data class UploadTask(
+    val uri: Uri,
+    val name: String,
+    val progress: Int = 0,
+    val status: UploadStatus = UploadStatus.PENDING,
+    val error: String? = null
+)
 
 @Composable
 fun FilesScreen(
@@ -56,6 +71,7 @@ fun FilesScreen(
     var isDeleting by remember { mutableStateOf(false) }
     var previewFile by remember { mutableStateOf<FileItem?>(null) }
     var isUpdatingVisibility by remember { mutableStateOf(false) }
+    var uploadTasks by remember { mutableStateOf<List<UploadTask>>(emptyList()) }
     val scope = rememberCoroutineScope()
     val context = LocalContext.current
 
@@ -69,9 +85,9 @@ fun FilesScreen(
         }
     }
 
-    val launcher = rememberLauncherForActivityResult(contract = ActivityResultContracts.GetMultipleContents()) { uris ->
-        if (uris.isNullOrEmpty()) return@rememberLauncherForActivityResult
-
+    fun startUpload(tasks: List<UploadTask>) {
+        if (tasks.isEmpty()) return
+        uploadTasks = tasks
         scope.launch {
             isUploading = true
             try {
@@ -81,19 +97,61 @@ fun FilesScreen(
                 val deviceName = "Android".toRequestBody("text/plain".toMediaTypeOrNull())
                 val clientIdPart = clientId.toRequestBody("text/plain".toMediaTypeOrNull())
 
-                for (uri in uris) {
+                for (t in tasks) {
+                    // 标记上传中
+                    uploadTasks = uploadTasks.map { if (it.uri == t.uri) it.copy(status = UploadStatus.UPLOADING, progress = 0, error = null) else it }
                     try {
-                        val part = FileUtil.getMultipartBody(context, uri) ?: continue
-                        fileApi.uploadFile(part, isPublic, notifyWs, source, deviceName, clientIdPart)
+                        val part = withContext(Dispatchers.IO) {
+                            FileUtil.getMultipartBodyWithProgress(context, t.uri) { written, total ->
+                                val percent = if (total <= 0L) 0 else ((written * 100f) / total).toInt().coerceIn(0, 100)
+                                uploadTasks = uploadTasks.map { task ->
+                                    if (task.uri == t.uri) task.copy(progress = percent) else task
+                                }
+                            }
+                        }
+
+                        if (part == null) {
+                            uploadTasks = uploadTasks.map { task ->
+                                if (task.uri == t.uri) task.copy(status = UploadStatus.ERROR, error = "无法读取文件") else task
+                            }
+                            continue
+                        }
+
+                        withContext(Dispatchers.IO) {
+                            fileApi.uploadFile(part, isPublic, notifyWs, source, deviceName, clientIdPart)
+                        }
+                        uploadTasks = uploadTasks.map { task ->
+                            if (task.uri == t.uri) task.copy(status = UploadStatus.SUCCESS, progress = 100) else task
+                        }
+
                     } catch (e: Exception) {
-                        e.printStackTrace()
+                        uploadTasks = uploadTasks.map { task ->
+                            if (task.uri == t.uri) task.copy(status = UploadStatus.ERROR, error = (e.message ?: "上传失败")) else task
+                        }
                     }
                 }
                 fetchFiles()
+                if (uploadTasks.isNotEmpty() && uploadTasks.all { it.status == UploadStatus.SUCCESS }) {
+                    uploadTasks = emptyList()
+                }
             } finally {
                 isUploading = false
             }
         }
+    }
+
+    fun retryUpload(uri: Uri) {
+        val t = uploadTasks.find { it.uri == uri } ?: return
+        startUpload(listOf(t.copy(status = UploadStatus.PENDING, progress = 0, error = null)))
+    }
+
+    val launcher = rememberLauncherForActivityResult(contract = ActivityResultContracts.GetMultipleContents()) { uris ->
+        if (uris.isNullOrEmpty()) return@rememberLauncherForActivityResult
+
+        val tasks = uris.map { uri ->
+            UploadTask(uri = uri, name = FileUtil.getFileDisplayName(context, uri))
+        }
+        startUpload(tasks)
     }
 
     val togglePublic: suspend (FileItem) -> Unit = { file ->
@@ -276,6 +334,77 @@ fun FilesScreen(
                     )
                     IconButton(onClick = { scope.launch { fetchFiles() } }, enabled = !isLoading) {
                         Icon(Icons.Filled.Refresh, contentDescription = "刷新")
+                    }
+                }
+
+                if (uploadTasks.isNotEmpty()) {
+                    Column(
+                        modifier = Modifier
+                            .padding(horizontal = 24.dp)
+                            .fillMaxWidth()
+                            .heightIn(max = 220.dp)
+                            .verticalScroll(rememberScrollState())
+                    ) {
+                        Row(
+                            modifier = Modifier.fillMaxWidth().padding(bottom = 8.dp),
+                            verticalAlignment = Alignment.CenterVertically,
+                            horizontalArrangement = Arrangement.SpaceBetween
+                        ) {
+                            Text(
+                                text = "上传队列 ${uploadTasks.count { it.status == UploadStatus.SUCCESS }}/${uploadTasks.size}",
+                                style = MaterialTheme.typography.labelLarge,
+                                color = MaterialTheme.colorScheme.onSurfaceVariant
+                            )
+                            TextButton(onClick = { uploadTasks = emptyList() }) {
+                                Text("关闭")
+                            }
+                        }
+                        uploadTasks.forEach { t ->
+                            Surface(
+                                shape = RoundedCornerShape(12.dp),
+                                tonalElevation = 1.dp,
+                                modifier = Modifier
+                                    .fillMaxWidth()
+                                    .padding(bottom = 8.dp)
+                            ) {
+                                Column(modifier = Modifier.padding(12.dp)) {
+                                    Row(verticalAlignment = Alignment.CenterVertically) {
+                                        Column(modifier = Modifier.weight(1f)) {
+                                            Text(t.name, maxLines = 1, overflow = TextOverflow.Ellipsis)
+                                            val sub = when (t.status) {
+                                                UploadStatus.PENDING -> "等待中"
+                                                UploadStatus.UPLOADING -> "上传中"
+                                                UploadStatus.SUCCESS -> "完成"
+                                                UploadStatus.ERROR -> t.error ?: "失败"
+                                            }
+                                            Text(sub, style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                                        }
+                                        if (t.status == UploadStatus.ERROR) {
+                                            TextButton(onClick = { retryUpload(t.uri) }) {
+                                                Text("重试")
+                                            }
+                                        } else {
+                                            Text(
+                                                text = "${t.progress}%",
+                                                style = MaterialTheme.typography.labelSmall,
+                                                color = MaterialTheme.colorScheme.onSurfaceVariant
+                                            )
+                                        }
+                                    }
+                                    LinearProgressIndicator(
+                                        progress = (t.progress / 100f).coerceIn(0f, 1f),
+                                        modifier = Modifier
+                                            .fillMaxWidth()
+                                            .padding(top = 8.dp),
+                                        color = when (t.status) {
+                                            UploadStatus.ERROR -> MaterialTheme.colorScheme.error
+                                            UploadStatus.SUCCESS -> Color(0xFF2E7D32)
+                                            else -> MaterialTheme.colorScheme.primary
+                                        }
+                                    )
+                                }
+                            }
+                        }
                     }
                 }
 
