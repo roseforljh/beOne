@@ -9,6 +9,14 @@ from app.services.file_service import FileService
 router = APIRouter()
 
 
+def _is_image_file(file_record: FileModel) -> bool:
+    mime = (file_record.mime_type or "").lower()
+    if mime.startswith("image/"):
+        return True
+    name = (file_record.filename or "").lower()
+    return name.endswith((".png", ".jpg", ".jpeg", ".gif", ".webp"))
+
+
 @router.get("/p/{share_token}")
 async def get_public_file(
     share_token: str,
@@ -33,7 +41,7 @@ async def get_public_file(
         )
     
     file_service = FileService(db)
-    inline = (file_record.mime_type or "").startswith("image/")
+    inline = _is_image_file(file_record)
     return await file_service.stream_file(file_record, inline=inline)
 
 
@@ -60,7 +68,7 @@ async def get_public_file_thumbnail(
             detail="File not found or not public"
         )
     
-    if not (file_record.mime_type or "").startswith("image/"):
+    if not _is_image_file(file_record):
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,
             detail="Not an image file"

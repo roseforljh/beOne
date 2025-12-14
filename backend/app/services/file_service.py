@@ -69,6 +69,16 @@ class FileService:
 
         # 优先使用内容探测的 mime_type，避免客户端上报不准导致浏览器解码失败
         mime_type = detected_mime_type or file.content_type
+        if not mime_type or mime_type == "application/octet-stream":
+            name = (file.filename or "").lower()
+            if name.endswith(".png"):
+                mime_type = "image/png"
+            elif name.endswith(".jpg") or name.endswith(".jpeg"):
+                mime_type = "image/jpeg"
+            elif name.endswith(".webp"):
+                mime_type = "image/webp"
+            elif name.endswith(".gif"):
+                mime_type = "image/gif"
 
         file_record = File(
             user_id=user_id,
