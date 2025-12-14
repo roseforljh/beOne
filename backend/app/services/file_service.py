@@ -11,6 +11,7 @@ from fastapi.responses import StreamingResponse, Response
 from sqlalchemy.ext.asyncio import AsyncSession
 from PIL import Image
 import magic
+from pillow_heif import register_heif_opener
 
 from app.config import settings
 from app.models.file import File
@@ -22,6 +23,7 @@ class FileService:
         self.db = db
         self.upload_dir = Path(settings.UPLOAD_DIR)
         self.upload_dir.mkdir(parents=True, exist_ok=True)
+        register_heif_opener()
     
     def _generate_share_token(self) -> str:
         """生成唯一的分享 Token"""
@@ -109,6 +111,30 @@ class FileService:
                 while chunk := await f.read(8192):
                     yield chunk
         
+        mime = (file_record.mime_type or "application/octet-stream").lower()
+        # 浏览器对 HEIC/HEIF 支持很差：inline 时转码为 JPEG
+        if inline and mime in ("image/heic", "image/heif"):
+            async with aiofiles.open(file_path, "rb") as f:
+                raw = await f.read()
+            try:
+                img = Image.open(BytesIO(raw))
+                if img.mode in ("RGBA", "P"):
+                    img = img.convert("RGB")
+                buffer = BytesIO()
+                img.save(buffer, format="JPEG", quality=92, optimize=True)
+                out = buffer.getvalue()
+                return Response(
+                    content=out,
+                    media_type="image/jpeg",
+                    headers={
+                        "Content-Disposition": f'inline; filename="{Path(file_record.filename).stem}.jpg"',
+                        "Content-Length": str(len(out)),
+                    },
+                )
+            except Exception:
+                # 转码失败则按原文件返回
+                pass
+
         disposition = "inline" if inline else "attachment"
         return StreamingResponse(
             file_iterator(),
