@@ -157,6 +157,18 @@ export const filesApi = {
     const response = await api.delete(`/api/v1/files/${fileId}`);
     return response.data;
   },
+  getStorageStats: async () => {
+    const response = await api.get('/api/v1/files/stats/storage');
+    return response.data as {
+      used_bytes: number;
+      total_bytes: number;
+      file_count: number;
+      used_display: string;
+      total_display: string;
+      remaining_display: string;
+      usage_percent: number;
+    };
+  },
 };
 
 // Conversations API

@@ -6,7 +6,7 @@ import { useRouter } from 'next/navigation';
 import { wsClient } from '@/lib/websocket';
 import { useTheme } from '@/components/theme-provider';
 import { toast } from 'sonner';
-import { usersApi } from '@/lib/api';
+import { usersApi, filesApi } from '@/lib/api';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
@@ -33,6 +33,12 @@ export default function SettingsPage() {
   const [newPassword, setNewPassword] = useState('');
   const [confirmPassword, setConfirmPassword] = useState('');
   const [, setNotificationPermission] = useState<NotificationPermission>('default');
+  const [storageStats, setStorageStats] = useState<{
+    used_display: string;
+    total_display: string;
+    remaining_display: string;
+    usage_percent: number;
+  } | null>(null);
 
   useEffect(() => {
     const saved = localStorage.getItem('synchub-settings');
@@ -42,6 +48,8 @@ export default function SettingsPage() {
     if ('Notification' in window) {
       setNotificationPermission(Notification.permission);
     }
+    // 获取存储统计
+    filesApi.getStorageStats().then(setStorageStats).catch(() => {});
   }, []);
 
   useEffect(() => {
@@ -236,12 +244,19 @@ export default function SettingsPage() {
       <div className="pt-6 border-t border-border/60">
         <div className="flex justify-between text-sm mb-3">
           <span className="font-medium">存储空间占用</span>
-          <span className="text-muted-foreground font-mono">4.2 GB / 10 GB</span>
+          <span className="text-muted-foreground font-mono">
+            {storageStats ? `${storageStats.used_display} / ${storageStats.total_display}` : '加载中...'}
+          </span>
         </div>
         <div className="h-2.5 w-full bg-secondary rounded-full overflow-hidden border border-border/50">
-          <div className="h-full bg-gradient-to-r from-indigo-500 via-purple-500 to-pink-500 w-[42%] shadow-[0_0_15px_rgba(168,85,247,0.4)]"></div>
+          <div 
+            className="h-full bg-gradient-to-r from-indigo-500 via-purple-500 to-pink-500 shadow-[0_0_15px_rgba(168,85,247,0.4)] transition-all duration-500"
+            style={{ width: `${storageStats?.usage_percent ?? 0}%` }}
+          ></div>
         </div>
-        <p className="text-xs text-muted-foreground mt-2">剩余 5.8 GB 可用空间</p>
+        <p className="text-xs text-muted-foreground mt-2">
+          {storageStats ? `剩余 ${storageStats.remaining_display} 可用空间` : ''}
+        </p>
       </div>
 
       {/* 退出登录 */}

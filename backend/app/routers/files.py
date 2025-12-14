@@ -1,9 +1,10 @@
 from fastapi import APIRouter, Depends, HTTPException, UploadFile, File, Form, status, Request
 from fastapi.responses import StreamingResponse, FileResponse
 from sqlalchemy.ext.asyncio import AsyncSession
-from sqlalchemy import select
+from sqlalchemy import select, func
 from typing import List, Optional
 from uuid import UUID
+import shutil
 
 from app.database import get_db
 from app.models.user import User
@@ -69,6 +70,47 @@ async def upload_file(
         return FileUploadResponse(file=response_data)
     except ValueError as e:
         raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail=str(e))
+
+
+@router.get("/stats/storage")
+async def get_storage_stats(
+    db: AsyncSession = Depends(get_db),
+    current_user: User = Depends(get_current_user)
+):
+    """获取用户存储空间使用情况（基于VPS实际磁盘空间）"""
+    result = await db.execute(
+        select(func.sum(FileModel.size), func.count(FileModel.id))
+        .where(FileModel.user_id == current_user.id)
+        .where(FileModel.deleted_at.is_(None))
+    )
+    row = result.one()
+    used_bytes = row[0] or 0
+    file_count = row[1] or 0
+    
+    # 获取VPS实际磁盘空间
+    disk_usage = shutil.disk_usage("/")
+    total_bytes = disk_usage.total
+    disk_free = disk_usage.free
+    
+    return {
+        "used_bytes": used_bytes,
+        "total_bytes": total_bytes,
+        "disk_free": disk_free,
+        "file_count": file_count,
+        "used_display": format_bytes(used_bytes),
+        "total_display": format_bytes(total_bytes),
+        "remaining_display": format_bytes(disk_free),
+        "usage_percent": round((used_bytes / total_bytes) * 100, 2) if total_bytes > 0 else 0
+    }
+
+
+def format_bytes(size: int) -> str:
+    """格式化字节数为人类可读格式"""
+    for unit in ['B', 'KB', 'MB', 'GB', 'TB']:
+        if size < 1024:
+            return f"{size:.1f} {unit}" if unit != 'B' else f"{size} {unit}"
+        size /= 1024
+    return f"{size:.1f} PB"
 
 
 @router.get("/", response_model=List[FileSchemaResponse])
