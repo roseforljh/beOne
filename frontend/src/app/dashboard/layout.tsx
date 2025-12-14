@@ -1,4 +1,4 @@
-﻿'use client';
+'use client';
 
 import { useEffect, useState } from 'react';
 import { useRouter, usePathname } from 'next/navigation';
@@ -6,7 +6,17 @@ import Link from 'next/link';
 import { useAuthStore } from '@/lib/store';
 import { wsClient } from '@/lib/websocket';
 import { Button } from '@/components/ui/button';
-import { Cloud, MessageSquare, HardDrive, Image as ImageIcon, Settings, LogOut, Search, Sun, Moon, Bell } from 'lucide-react';
+import { Cloud, MessageSquare, HardDrive, Image as ImageIcon, Settings, LogOut, Search, Sun, Moon } from 'lucide-react';
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from '@/components/ui/alert-dialog';
 import { cn } from '@/lib/utils';
 import { useTheme } from '@/components/theme-provider';
 
@@ -16,6 +26,7 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
   const { user, token, logout, isAuthenticated } = useAuthStore();
   const { theme, setTheme } = useTheme();
   const [mounted, setMounted] = useState(false);
+  const [logoutConfirmOpen, setLogoutConfirmOpen] = useState(false);
 
   useEffect(() => { setMounted(true); }, []);
 
@@ -85,7 +96,7 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
           })}
         </nav>
         <div className="p-4 border-t border-border/60">
-          <div onClick={handleLogout} className="flex items-center gap-3 p-2.5 rounded-xl hover:bg-secondary/50 cursor-pointer transition-all duration-300 group border border-transparent hover:border-border/50">
+          <div onClick={() => setLogoutConfirmOpen(true)} className="flex items-center gap-3 p-2.5 rounded-xl hover:bg-secondary/50 cursor-pointer transition-all duration-300 group border border-transparent hover:border-border/50">
             <div className="w-9 h-9 rounded-full bg-gradient-to-tr from-indigo-500 via-purple-500 to-pink-500 ring-2 ring-background/50 shadow-lg p-[2px]">
               <div className="w-full h-full bg-background rounded-full flex items-center justify-center">
                 <span className="text-xs font-bold text-transparent bg-clip-text bg-gradient-to-r from-indigo-400 to-pink-400">{user.username?.substring(0, 2).toUpperCase()}</span>
@@ -111,10 +122,6 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
               <Search size={14} />
               <input type="text" placeholder="搜索文件或记录..." className="bg-transparent border-none outline-none w-full placeholder:text-muted-foreground/60 text-foreground" />
             </div>
-            <button className="text-muted-foreground hover:text-foreground transition-colors relative p-2 hover:bg-secondary/50 rounded-full group">
-              <Bell size={18} />
-              <span className="absolute top-2 right-2.5 w-1.5 h-1.5 bg-pink-500 rounded-full"></span>
-            </button>
             <Button variant="ghost" size="icon" className="h-9 w-9 rounded-full" onClick={() => setTheme(theme === 'dark' ? 'light' : 'dark')}>
               <Sun className="h-4 w-4 rotate-0 scale-100 transition-all dark:-rotate-90 dark:scale-0" />
               <Moon className="absolute h-4 w-4 rotate-90 scale-0 transition-all dark:rotate-0 dark:scale-100" />
@@ -122,7 +129,20 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
           </div>
         </header>
         <div className="flex-1 overflow-y-auto">{children}</div>
+        <AlertDialog open={logoutConfirmOpen} onOpenChange={setLogoutConfirmOpen}>
+          <AlertDialogContent>
+            <AlertDialogHeader>
+              <AlertDialogTitle>确认退出登录？</AlertDialogTitle>
+              <AlertDialogDescription>退出后将返回登录页，需要重新登录才能继续使用。</AlertDialogDescription>
+            </AlertDialogHeader>
+            <AlertDialogFooter>
+              <AlertDialogCancel>取消</AlertDialogCancel>
+              <AlertDialogAction onClick={handleLogout}>退出登录</AlertDialogAction>
+            </AlertDialogFooter>
+          </AlertDialogContent>
+        </AlertDialog>
       </main>
     </div>
   );
 }
+
