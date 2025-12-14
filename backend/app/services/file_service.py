@@ -6,6 +6,7 @@ from io import BytesIO
 from pathlib import Path
 from datetime import datetime
 from typing import Optional
+from urllib.parse import quote
 from fastapi import UploadFile
 from fastapi.responses import StreamingResponse, Response
 from sqlalchemy.ext.asyncio import AsyncSession
@@ -126,11 +127,13 @@ class FileService:
                 buffer = BytesIO()
                 img.save(buffer, format="JPEG", quality=92, optimize=True)
                 out = buffer.getvalue()
+                jpg_filename = f"{Path(file_record.filename).stem}.jpg"
+                encoded_jpg = quote(jpg_filename, safe='')
                 return Response(
                     content=out,
                     media_type="image/jpeg",
                     headers={
-                        "Content-Disposition": f'inline; filename="{Path(file_record.filename).stem}.jpg"',
+                        "Content-Disposition": f"inline; filename=\"{encoded_jpg}\"; filename*=UTF-8''{encoded_jpg}",
                         "Content-Length": str(len(out)),
                     },
                 )
@@ -139,11 +142,16 @@ class FileService:
                 pass
 
         disposition = "inline" if inline else "attachment"
+        # Use RFC 5987 encoding for non-ASCII filenames
+        filename = file_record.filename
+        encoded_filename = quote(filename, safe='')
+        content_disposition = f"{disposition}; filename=\"{encoded_filename}\"; filename*=UTF-8''{encoded_filename}"
+        
         return StreamingResponse(
             file_iterator(),
             media_type=file_record.mime_type or "application/octet-stream",
             headers={
-                "Content-Disposition": f'{disposition}; filename="{file_record.filename}"',
+                "Content-Disposition": content_disposition,
                 "Content-Length": str(file_record.size),
             }
         )
