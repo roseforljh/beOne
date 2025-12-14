@@ -160,7 +160,12 @@ fun LoginScreen(
                             try {
                                 val response = authApi.devLogin(DevLoginRequest(username = username))
                                 tokenManager.saveToken(response.access_token)
-                                tokenManager.saveUser(response.user.id, response.user.username ?: "Unknown")
+                                tokenManager.saveUserProfile(
+                                    id = response.user.id,
+                                    username = response.user.username ?: "Unknown",
+                                    email = response.user.email,
+                                    avatarUrl = response.user.avatar_url
+                                )
                                 onLoginSuccess()
                             } catch (e: Exception) {
                                 snackbarHostState.showSnackbar("登录失败: ${e.message}")

@@ -10,6 +10,8 @@ class TokenManager(context: Context) {
         private const val KEY_ACCESS_TOKEN = "access_token"
         private const val KEY_USER_ID = "user_id"
         private const val KEY_USERNAME = "username"
+        private const val KEY_EMAIL = "email"
+        private const val KEY_AVATAR_URL = "avatar_url"
     }
 
     fun saveToken(token: String) {
@@ -21,14 +23,28 @@ class TokenManager(context: Context) {
     }
 
     fun saveUser(id: Int, username: String) {
+        saveUserProfile(id = id, username = username, email = null, avatarUrl = null)
+    }
+
+    fun saveUserProfile(id: Int, username: String, email: String?, avatarUrl: String?) {
         prefs.edit()
             .putInt(KEY_USER_ID, id)
             .putString(KEY_USERNAME, username)
+            .putString(KEY_EMAIL, email)
+            .putString(KEY_AVATAR_URL, avatarUrl)
             .apply()
     }
 
     fun getUsername(): String? {
         return prefs.getString(KEY_USERNAME, null)
+    }
+
+    fun getEmail(): String? {
+        return prefs.getString(KEY_EMAIL, null)
+    }
+
+    fun getAvatarUrl(): String? {
+        return prefs.getString(KEY_AVATAR_URL, null)
     }
 
     fun getUserId(): Int {

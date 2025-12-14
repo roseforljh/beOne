@@ -223,6 +223,16 @@ class MainActivity : ComponentActivity() {
                     // OAuth成功后主动导航到Chat页面
                     LaunchedEffect(oauthJustSucceeded) {
                         if (oauthJustSucceeded && hasToken) {
+                            try {
+                                val me = authApi.getMe()
+                                tokenManager.saveUserProfile(
+                                    id = me.id,
+                                    username = me.username ?: "Unknown",
+                                    email = me.email,
+                                    avatarUrl = me.avatar_url
+                                )
+                            } catch (_: Exception) {
+                            }
                             navController.navigate(Screen.Home.Chat.route) {
                                 popUpTo(Screen.Login.route) { inclusive = true }
                             }
