@@ -13,7 +13,8 @@ import {
   Link as LinkIcon,
   Check,
   Trash2,
-  RefreshCw
+  RefreshCw,
+  Loader2
 } from 'lucide-react';
 import { toast } from 'sonner';
 
@@ -44,6 +45,7 @@ export default function GalleryPage() {
   const [uploading, setUploading] = useState(false);
   const [copiedId, setCopiedId] = useState<string | null>(null);
   const [uploadTasks, setUploadTasks] = useState<UploadTask[]>([]);
+  const [loadingImages, setLoadingImages] = useState<Set<string>>(new Set());
 
   const getShareUrl = (publicUrl: string) => {
     return publicUrl.startsWith('http') ? publicUrl : `${API_BASE_URL}${publicUrl}`;
@@ -53,7 +55,10 @@ export default function GalleryPage() {
     setLoading(true);
     try {
       const data = await filesApi.list(0, 50, 'gallery');
-      setImages(data.filter((f: FileItem) => f.mime_type?.startsWith('image/')));
+      const filtered = data.filter((f: FileItem) => f.mime_type?.startsWith('image/'));
+      setImages(filtered);
+      // 初始化所有图片为加载中状态
+      setLoadingImages(new Set(filtered.map((f: FileItem) => f.id)));
     } catch {
       toast.error('加载图片失败');
     } finally {
@@ -311,11 +316,19 @@ export default function GalleryPage() {
               >
                 {/* 图片区域 */}
                 <div className="aspect-square bg-secondary relative overflow-hidden">
+                  {/* 加载指示器 */}
+                  {loadingImages.has(img.id) && (
+                    <div className="absolute inset-0 flex items-center justify-center bg-secondary z-10">
+                      <Loader2 className="h-8 w-8 animate-spin text-muted-foreground" />
+                    </div>
+                  )}
                   {/* eslint-disable-next-line @next/next/no-img-element */}
                   <img 
                     src={img.public_url ? getShareUrl(img.public_url) : img.download_url} 
-                    className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-700 ease-out" 
-                    alt={img.filename} 
+                    className={`w-full h-full object-cover group-hover:scale-105 transition-transform duration-700 ease-out ${loadingImages.has(img.id) ? 'opacity-0' : 'opacity-100'}`}
+                    alt={img.filename}
+                    onLoad={() => setLoadingImages(prev => { const next = new Set(prev); next.delete(img.id); return next; })}
+                    onError={() => setLoadingImages(prev => { const next = new Set(prev); next.delete(img.id); return next; })}
                   />
                    
                   {/* 悬停遮罩 */}
