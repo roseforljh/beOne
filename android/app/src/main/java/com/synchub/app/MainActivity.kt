@@ -262,6 +262,7 @@ class MainActivity : ComponentActivity() {
                                 webSocketService = webSocketService,
                                 tokenManager = tokenManager,
                                 conversationRepository = conversationRepository,
+                                fileApi = fileApi,
                                 onDownload = { msg ->
                                     if (msg.fileId.isNotEmpty()) {
                                         DownloadUtil.downloadFile(

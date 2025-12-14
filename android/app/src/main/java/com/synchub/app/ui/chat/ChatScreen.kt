@@ -1,15 +1,19 @@
 package com.synchub.app.ui.chat
 
+import android.net.Uri
+import android.widget.Toast
 import androidx.compose.animation.AnimatedVisibility
 import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
+
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.lazy.rememberLazyListState
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
+
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Add
 import androidx.compose.material.icons.filled.AttachFile
@@ -36,6 +40,7 @@ import coil.request.ImageRequest
 import com.synchub.app.data.TokenManager
 import com.synchub.app.data.Conversation
 import com.synchub.app.data.ConversationRepository
+import com.synchub.app.network.FileApi
 import com.synchub.app.network.NetworkModule
 import com.synchub.app.service.WebSocketService
 import com.synchub.app.service.WSMessage
@@ -44,6 +49,11 @@ import kotlinx.coroutines.launch
 import androidx.compose.animation.core.animateDpAsState
 import androidx.compose.animation.core.animateFloatAsState
 import androidx.compose.animation.core.tween
+import androidx.activity.compose.rememberLauncherForActivityResult
+import androidx.activity.result.contract.ActivityResultContracts
+import okhttp3.MediaType.Companion.toMediaTypeOrNull
+import okhttp3.RequestBody.Companion.toRequestBody
+import com.synchub.app.utils.FileUtil
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -51,6 +61,7 @@ fun ChatScreen(
     webSocketService: WebSocketService,
     tokenManager: TokenManager,
     conversationRepository: ConversationRepository,
+    fileApi: FileApi,
     onDownload: (WSMessage) -> Unit,
     bottomNavHeight: androidx.compose.ui.unit.Dp = 0.dp
 ) {
@@ -68,6 +79,32 @@ fun ChatScreen(
     val systemNavBarHeightDp = with(density) { WindowInsets.navigationBars.getBottom(density).toDp() }
     val imeBottomDp = with(density) { WindowInsets.ime.getBottom(density).toDp() }
     val effectiveBottomNavPad = (bottomNavHeight - minOf(bottomNavHeight, imeBottomDp)).coerceAtLeast(0.dp)
+    val context = LocalContext.current
+
+    val pickFileLauncher = rememberLauncherForActivityResult(
+        contract = ActivityResultContracts.OpenDocument(),
+        onResult = { uri: Uri? ->
+            if (uri == null) return@rememberLauncherForActivityResult
+            scope.launch {
+                try {
+                    val part = FileUtil.getMultipartBody(context, uri)
+                    if (part == null) {
+                        Toast.makeText(context, "无法读取文件", Toast.LENGTH_SHORT).show()
+                        return@launch
+                    }
+                    val isPublic = "false".toRequestBody("text/plain".toMediaTypeOrNull())
+                    val notifyWs = "true".toRequestBody("text/plain".toMediaTypeOrNull())
+                    val source = "drive".toRequestBody("text/plain".toMediaTypeOrNull())
+                    val deviceName = "Android".toRequestBody("text/plain".toMediaTypeOrNull())
+                    val clientIdPart = webSocketService.clientId.toRequestBody("text/plain".toMediaTypeOrNull())
+                    val response = fileApi.uploadFile(part, isPublic, notifyWs, source, deviceName, clientIdPart)
+                    webSocketService.addLocalFileMessage(response.file)
+                } catch (e: Exception) {
+                    Toast.makeText(context, "上传失败: ${e.message}", Toast.LENGTH_SHORT).show()
+                }
+            }
+        }
+    )
 
     LaunchedEffect(Unit) {
         webSocketService.connect()
@@ -264,7 +301,7 @@ fun ChatScreen(
                 verticalAlignment = Alignment.CenterVertically
             ) {
                 IconButton(
-                    onClick = { /* TODO */ },
+                    onClick = { pickFileLauncher.launch(arrayOf("*/*")) },
                     modifier = Modifier.size(40.dp)
                 ) {
                     Icon(Icons.Filled.AttachFile, "附件", tint = MaterialTheme.colorScheme.onSurfaceVariant)

@@ -12,6 +12,78 @@ import { cn } from '@/lib/utils';
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from '@/components/ui/dropdown-menu';
 import { ConversationSidebar } from '@/components/ConversationSidebar';
 
+function FileMessageContent({
+  msg,
+  isMe,
+  isImageMime,
+  downloadById,
+}: {
+  msg: WSMessage;
+  isMe: boolean;
+  isImageMime: (m?: string) => boolean;
+  downloadById: (fileId?: string, filename?: string) => void;
+}) {
+  const [imagePreviewUrl, setImagePreviewUrl] = useState<string | null>(null);
+  const shouldPreviewImage = msg.type === 'file' && isImageMime(msg.mime_type) && !!msg.file_id;
+
+  useEffect(() => {
+    let canceled = false;
+    let objectUrl: string | null = null;
+
+    const load = async () => {
+      if (!shouldPreviewImage) {
+        setImagePreviewUrl(null);
+        return;
+      }
+      try {
+        const { blob } = await filesApi.download(msg.file_id!);
+        objectUrl = URL.createObjectURL(blob);
+        if (!canceled) setImagePreviewUrl(objectUrl);
+      } catch {
+        if (!canceled) setImagePreviewUrl(null);
+      }
+    };
+
+    load();
+    return () => {
+      canceled = true;
+      if (objectUrl) URL.revokeObjectURL(objectUrl);
+    };
+  }, [shouldPreviewImage, msg.file_id]);
+
+  return (
+    <div className="flex flex-col gap-3">
+      {shouldPreviewImage && imagePreviewUrl && (
+        <div className={cn("rounded-xl overflow-hidden border", isMe ? "border-white/15" : "border-border")}>
+          <img
+            src={imagePreviewUrl}
+            alt={msg.filename || 'image'}
+            className="max-w-[260px] md:max-w-[340px] max-h-[260px] md:max-h-[340px] object-cover"
+          />
+        </div>
+      )}
+      <div className="flex items-center gap-3 pr-4">
+        <div className={cn("p-2.5 rounded-lg", isMe ? "bg-white/20 text-white" : "bg-secondary text-primary")}>
+          {isImageMime(msg.mime_type) ? <ImageIcon size={24}/> : <FileText size={24}/>}
+        </div>
+        <div className="flex flex-col">
+          <span className={cn("font-medium truncate max-w-[150px]", isMe ? "text-white" : "text-foreground")}>{msg.filename}</span>
+          <span className={cn("text-xs", isMe ? "text-indigo-200" : "text-muted-foreground")}>文件</span>
+        </div>
+        <Button
+          size="icon"
+          variant="ghost"
+          className="h-8 w-8 ml-2"
+          onClick={() => downloadById(msg.file_id, msg.filename)}
+          title="下载"
+        >
+          <Download className="h-4 w-4"/>
+        </Button>
+      </div>
+    </div>
+  );
+}
+
 export default function ChatPage() {
   const { 
     conversations,
@@ -128,7 +200,25 @@ export default function ChatPage() {
     setTimeout(() => setCopiedId(null), 2000);
   };
 
-  const isImageMime = (m?: string) => m?.startsWith('image/');
+  const downloadById = async (fileId?: string, filename?: string) => {
+    if (!fileId) return;
+    try {
+      const { blob, filename: inferred } = await filesApi.download(fileId);
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.href = url;
+      a.download = filename || inferred || 'download';
+      document.body.appendChild(a);
+      a.click();
+      a.remove();
+      URL.revokeObjectURL(url);
+    } catch (e) {
+      console.error(e);
+      toast.error('下载失败');
+    }
+  };
+
+  const isImageMime = (m?: string) => !!m?.startsWith('image/');
   const getDeviceIcon = (d?: string) => d?.toLowerCase().includes('mac') || d?.toLowerCase().includes('web') ? <Laptop size={12}/> : <Smartphone size={12}/>;
 
   const handleNewConversation = async () => {
@@ -204,7 +294,7 @@ export default function ChatPage() {
                 <span className="bg-secondary/80 border border-border text-muted-foreground text-[10px] px-3 py-1 rounded-full uppercase tracking-wider font-medium shadow-sm">今天</span>
               </div>
               {messages.map((msg) => {
-                const isMe = msg.isOwn;
+                const isMe = !!msg.isOwn;
                 return (
                   <div key={msg.id} className={cn("flex w-full group animate-in fade-in slide-in-from-bottom-2 duration-300", isMe ? "justify-end" : "justify-start")}>
                     <div className={cn("flex flex-col max-w-[85%] md:max-w-[70%]", isMe ? "items-end" : "items-start")}>
@@ -223,16 +313,7 @@ export default function ChatPage() {
                           <p className={cn("leading-relaxed whitespace-pre-wrap", isMe ? "text-indigo-50" : "text-foreground")}>{msg.content}</p>
                         )}
                         {msg.type === 'file' && (
-                          <div className="flex items-center gap-3 pr-4">
-                            <div className={cn("p-2.5 rounded-lg", isMe ? "bg-white/20 text-white" : "bg-secondary text-primary")}>
-                              {isImageMime(msg.mime_type) ? <ImageIcon size={24}/> : <FileText size={24}/>}
-                            </div>
-                            <div className="flex flex-col">
-                              <span className={cn("font-medium truncate max-w-[150px]", isMe ? "text-white" : "text-foreground")}>{msg.filename}</span>
-                              <span className={cn("text-xs", isMe ? "text-indigo-200" : "text-muted-foreground")}>文件</span>
-                            </div>
-                            <Button size="icon" variant="ghost" className="h-8 w-8 ml-2"><Download className="h-4 w-4"/></Button>
-                          </div>
+                          <FileMessageContent msg={msg} isMe={isMe} isImageMime={isImageMime} downloadById={downloadById} />
                         )}
                       </div>
                       <div className={cn("flex items-center gap-2 mt-1 opacity-0 group-hover:opacity-100 transition-opacity", isMe ? "flex-row-reverse" : "flex-row")}>
