@@ -104,7 +104,7 @@ export const filesApi = {
     deviceName: string = 'Web',
     clientId?: string,
     notifyWs: boolean = true,
-    source: 'drive' | 'gallery' = 'drive'
+    source: 'drive' | 'gallery' | 'chat' = 'drive'
   ) => {
     const formData = new FormData();
     formData.append('file', file);

@@ -94,7 +94,7 @@ fun ChatScreen(
                     }
                     val isPublic = "false".toRequestBody("text/plain".toMediaTypeOrNull())
                     val notifyWs = "true".toRequestBody("text/plain".toMediaTypeOrNull())
-                    val source = "drive".toRequestBody("text/plain".toMediaTypeOrNull())
+                    val source = "chat".toRequestBody("text/plain".toMediaTypeOrNull())
                     val deviceName = "Android".toRequestBody("text/plain".toMediaTypeOrNull())
                     val clientIdPart = webSocketService.clientId.toRequestBody("text/plain".toMediaTypeOrNull())
                     val response = fileApi.uploadFile(part, isPublic, notifyWs, source, deviceName, clientIdPart)
@@ -108,6 +108,21 @@ fun ChatScreen(
 
     LaunchedEffect(Unit) {
         webSocketService.connect()
+    }
+
+    LaunchedEffect(connectionState) {
+        if (connectionState == ConnectionState.CONNECTED) {
+            conversationRepository.fetchConversations()
+        }
+    }
+
+    LaunchedEffect(connectionState, currentConversation?.id) {
+        if (connectionState == ConnectionState.CONNECTED) {
+            val conv = currentConversation
+            if (conv != null) {
+                webSocketService.setMessages(conv.messages)
+            }
+        }
     }
 
     LaunchedEffect(messages.size) {
