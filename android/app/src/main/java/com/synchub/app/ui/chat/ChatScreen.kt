@@ -21,6 +21,7 @@ import androidx.compose.material.icons.filled.Add
 import androidx.compose.material.icons.filled.AttachFile
 import androidx.compose.material.icons.filled.Delete
 import androidx.compose.material.icons.filled.History
+import androidx.compose.material.icons.filled.Refresh
 import androidx.compose.material.icons.filled.Send
 import androidx.compose.material.icons.filled.ArrowUpward
 import androidx.compose.material3.*
@@ -201,6 +202,14 @@ fun ChatScreen(
                         color = MaterialTheme.colorScheme.onBackground
                     )
                     Row(horizontalArrangement = Arrangement.spacedBy(4.dp)) {
+                        IconButton(onClick = {
+                            // Refresh: reconnect WebSocket and resync messages
+                            syncedConversationId = null
+                            conversationRepository.fetchConversations()
+                            webSocketService.reconnect()
+                        }) {
+                            Icon(Icons.Filled.Refresh, "刷新", tint = MaterialTheme.colorScheme.onSurfaceVariant)
+                        }
                         IconButton(onClick = {
                             // Backend API handles broadcasting
                             conversationRepository.createNewConversation()

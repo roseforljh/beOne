@@ -217,8 +217,12 @@ export default function ChatPage() {
   };
 
   const handleFileSelect = async (e: React.ChangeEvent<HTMLInputElement>) => {
-    const file = e.target.files?.[0];
-    if (file) await uploadFile(file);
+    const files = e.target.files;
+    if (files && files.length > 0) {
+      for (const file of Array.from(files)) {
+        await uploadFile(file);
+      }
+    }
     e.target.value = '';
   };
 
@@ -374,7 +378,7 @@ export default function ChatPage() {
 
       <div className="absolute bottom-6 left-0 right-0 px-4 flex justify-center z-30">
         <div className="w-full max-w-3xl bg-card/80 backdrop-blur-2xl border border-border/30 shadow-2xl shadow-black/20 dark:shadow-black/80 rounded-2xl p-2.5 flex items-end gap-2 ring-1 ring-white/5 group focus-within:ring-primary/30 focus-within:border-primary/30 transition-all duration-300">
-          <input ref={fileInputRef} type="file" className="hidden" onChange={handleFileSelect}/>
+          <input ref={fileInputRef} type="file" className="hidden" multiple onChange={handleFileSelect}/>
           <DropdownMenu>
             <DropdownMenuTrigger asChild>
               <button className="p-3 text-muted-foreground hover:text-primary hover:bg-primary/10 rounded-xl transition-colors" disabled={uploading}><Plus size={20}/></button>
