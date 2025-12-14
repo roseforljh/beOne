@@ -144,6 +144,7 @@ export default function ChatPage() {
   const [messages, setMessages] = useState<WSMessage[]>([]);
   const [input, setInput] = useState('');
   const [uploading, setUploading] = useState(false);
+  const [uploadProgress, setUploadProgress] = useState(0);
   const [copiedId, setCopiedId] = useState<string | null>(null);
   const [connectionState, setConnectionState] = useState<ConnectionState>('disconnected');
   const [sidebarOpen, setSidebarOpen] = useState(false);
@@ -228,15 +229,18 @@ export default function ChatPage() {
 
   const uploadFile = async (file: File) => {
     setUploading(true);
+    setUploadProgress(0);
     try {
-      const response = await filesApi.upload(file, false, 'Web', wsClient.getClientId(), true, 'chat');
+      const response = await filesApi.upload(file, false, 'Web', wsClient.getClientId(), true, 'chat', {
+        onProgress: (percent) => setUploadProgress(percent),
+      });
       const msg: WSMessage = { id: Date.now().toString(), type: 'file', content: file.name, device_name: 'Web', timestamp: new Date(), file_id: response.file.id, filename: response.file.filename, mime_type: response.file.mime_type, isOwn: true };
       addMessageToCurrentConversation(msg);
       // Save to backend so other devices can fetch history
       addMessageToBackend(msg);
       toast.success('上传成功');
     } catch { toast.error('上传失败'); }
-    finally { setUploading(false); }
+    finally { setUploading(false); setUploadProgress(0); }
   };
 
   const copyToClipboard = async (text: string, id: string) => {
@@ -377,8 +381,25 @@ export default function ChatPage() {
       </ScrollArea>
 
       <div className="absolute bottom-6 left-0 right-0 px-4 flex justify-center z-30">
-        <div className="w-full max-w-3xl bg-card/80 backdrop-blur-2xl border border-border/30 shadow-2xl shadow-black/20 dark:shadow-black/80 rounded-2xl p-2.5 flex items-end gap-2 ring-1 ring-white/5 group focus-within:ring-primary/30 focus-within:border-primary/30 transition-all duration-300">
-          <input ref={fileInputRef} type="file" className="hidden" multiple onChange={handleFileSelect}/>
+        <div className="w-full max-w-3xl flex flex-col gap-2">
+          {uploading && (
+            <div className="bg-card/90 backdrop-blur-xl border border-border/30 rounded-xl p-3 flex items-center gap-3">
+              <div className="flex-1">
+                <div className="flex justify-between text-xs text-muted-foreground mb-1">
+                  <span>上传中...</span>
+                  <span>{uploadProgress}%</span>
+                </div>
+                <div className="h-1.5 bg-secondary rounded-full overflow-hidden">
+                  <div 
+                    className="h-full bg-gradient-to-r from-indigo-500 to-purple-600 transition-all duration-300 ease-out"
+                    style={{ width: `${uploadProgress}%` }}
+                  />
+                </div>
+              </div>
+            </div>
+          )}
+          <div className="bg-card/80 backdrop-blur-2xl border border-border/30 shadow-2xl shadow-black/20 dark:shadow-black/80 rounded-2xl p-2.5 flex items-end gap-2 ring-1 ring-white/5 group focus-within:ring-primary/30 focus-within:border-primary/30 transition-all duration-300">
+            <input ref={fileInputRef} type="file" className="hidden" multiple onChange={handleFileSelect}/>
           <DropdownMenu>
             <DropdownMenuTrigger asChild>
               <button className="p-3 text-muted-foreground hover:text-primary hover:bg-primary/10 rounded-xl transition-colors" disabled={uploading}><Plus size={20}/></button>
@@ -410,16 +431,9 @@ export default function ChatPage() {
           >
             <ArrowUp size={20}/>
           </button>
+          </div>
         </div>
       </div>
-
-      {uploading && (
-        <div className="absolute bottom-24 left-0 right-0 flex justify-center z-30">
-          <span className="bg-card/90 backdrop-blur border border-border shadow-sm text-xs px-3 py-1 rounded-full flex items-center gap-2 animate-in fade-in slide-in-from-bottom-2">
-            <span className="w-2 h-2 bg-primary rounded-full animate-pulse"/>正在上传...
-          </span>
-        </div>
-      )}
     </div>
   );
 }
