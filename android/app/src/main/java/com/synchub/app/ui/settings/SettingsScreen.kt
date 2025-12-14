@@ -34,6 +34,7 @@ fun SettingsScreen(
 ) {
     val context = LocalContext.current
     val username = tokenManager.getUsername() ?: "用户"
+    val email = tokenManager.getEmail()
     val userId = tokenManager.getUserId()
     
     var showProfileDialog by remember { mutableStateOf(false) }
@@ -96,6 +97,13 @@ fun SettingsScreen(
                             style = MaterialTheme.typography.titleMedium.copy(fontWeight = FontWeight.SemiBold),
                             color = MaterialTheme.colorScheme.onSurface
                         )
+                        if (!email.isNullOrBlank()) {
+                            Text(
+                                text = email,
+                                style = MaterialTheme.typography.bodySmall,
+                                color = MaterialTheme.colorScheme.onSurfaceVariant
+                            )
+                        }
                         Text(
                             text = "ID: $userId",
                             style = MaterialTheme.typography.bodySmall,
@@ -171,6 +179,7 @@ fun SettingsScreen(
     if (showProfileDialog) {
         ProfileDialog(
             username = username,
+            email = email,
             userId = userId.toString(),
             onDismiss = { showProfileDialog = false },
             onCopyId = {
@@ -218,7 +227,7 @@ fun SettingsScreen(
 }
 
 @Composable
-fun ProfileDialog(username: String, userId: String, onDismiss: () -> Unit, onCopyId: () -> Unit) {
+fun ProfileDialog(username: String, email: String?, userId: String, onDismiss: () -> Unit, onCopyId: () -> Unit) {
     AlertDialog(
         onDismissRequest = onDismiss,
         icon = { Icon(Icons.Default.Person, contentDescription = null) },
@@ -226,6 +235,10 @@ fun ProfileDialog(username: String, userId: String, onDismiss: () -> Unit, onCop
         text = {
             Column {
                 ProfileInfoRow("用户名", username)
+                if (!email.isNullOrBlank()) {
+                    Spacer(modifier = Modifier.height(12.dp))
+                    ProfileInfoRow("邮箱", email)
+                }
                 Spacer(modifier = Modifier.height(12.dp))
                 ProfileInfoRow("用户ID", userId)
             }

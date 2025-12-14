@@ -7,6 +7,42 @@ import { Capacitor } from '@capacitor/core';
 import { Filesystem, Directory } from '@capacitor/filesystem';
 import { Toast } from '@capacitor/toast';
 
+async function saveBlobWithPicker(blob, filename) {
+  const picker = window?.showSaveFilePicker;
+  if (typeof picker === 'function') {
+    try {
+      const ext = (filename || '').includes('.') ? filename.split('.').pop() : '';
+      const handle = await picker({
+        suggestedName: filename || 'download',
+        types: ext
+          ? [
+              {
+                description: 'File',
+                accept: { 'application/octet-stream': [`.${ext}`] },
+              },
+            ]
+          : undefined,
+      });
+      const writable = await handle.createWritable();
+      await writable.write(blob);
+      await writable.close();
+      return;
+    } catch (e) {
+      if (e?.name === 'AbortError') return;
+      console.error('showSaveFilePicker failed, fallback to default download:', e);
+    }
+  }
+
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement('a');
+  a.href = url;
+  a.download = filename || 'download';
+  document.body.appendChild(a);
+  a.click();
+  a.remove();
+  URL.revokeObjectURL(url);
+}
+
 const ChatMessage = memo(function ChatMessage({ message, isOwn, currentSessionId, onRecall }) {
   // 判断是否是当前会话发送的消息
   // 如果消息没有 session_id（旧消息），默认显示在右边
@@ -71,7 +107,10 @@ const ChatMessage = memo(function ChatMessage({ message, isOwn, currentSessionId
         });
       }
     } else {
-      window.open(api.getDownloadUrl(message.file.id), '_blank');
+      const response = await axiosInstance.get(`/api/files/${message.file.id}/download`, {
+        responseType: 'blob',
+      });
+      await saveBlobWithPicker(response.data, message.file.original_name);
     }
   }, [message.file]);
 
@@ -141,10 +180,10 @@ const ChatMessage = memo(function ChatMessage({ message, isOwn, currentSessionId
         {/* 消息内容 */}
         <div className="relative w-full">
           <div
-            className={`px-3 md:px-4 py-2 md:py-3 rounded-2xl text-sm md:text-base ${
+            className={`px-4 md:px-5 py-3 md:py-3.5 text-sm md:text-base shadow-sm ${
               isCurrentSession
-                ? 'bg-taiji-black text-taiji-white'
-                : 'bg-taiji-gray-200 text-taiji-black'
+                ? 'bg-gradient-to-br from-taiji-black to-gray-800 text-taiji-white rounded-[20px] rounded-br-md'
+                : 'bg-taiji-gray-100 text-taiji-black rounded-[20px] rounded-bl-md border border-taiji-gray-200'
             }`}
           >
           {message.type === 'text' ? (

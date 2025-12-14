@@ -11,6 +11,8 @@ import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.lazy.rememberLazyListState
+import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.verticalScroll
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 
@@ -82,25 +84,27 @@ fun ChatScreen(
     val context = LocalContext.current
 
     val pickFileLauncher = rememberLauncherForActivityResult(
-        contract = ActivityResultContracts.OpenDocument(),
-        onResult = { uri: Uri? ->
-            if (uri == null) return@rememberLauncherForActivityResult
+        contract = ActivityResultContracts.OpenMultipleDocuments(),
+        onResult = { uris: List<Uri> ->
+            if (uris.isEmpty()) return@rememberLauncherForActivityResult
             scope.launch {
-                try {
-                    val part = FileUtil.getMultipartBody(context, uri)
-                    if (part == null) {
-                        Toast.makeText(context, "无法读取文件", Toast.LENGTH_SHORT).show()
-                        return@launch
+                for (uri in uris) {
+                    try {
+                        val part = FileUtil.getMultipartBody(context, uri)
+                        if (part == null) {
+                            Toast.makeText(context, "无法读取文件", Toast.LENGTH_SHORT).show()
+                            continue
+                        }
+                        val isPublic = "false".toRequestBody("text/plain".toMediaTypeOrNull())
+                        val notifyWs = "true".toRequestBody("text/plain".toMediaTypeOrNull())
+                        val source = "chat".toRequestBody("text/plain".toMediaTypeOrNull())
+                        val deviceName = "Android".toRequestBody("text/plain".toMediaTypeOrNull())
+                        val clientIdPart = webSocketService.clientId.toRequestBody("text/plain".toMediaTypeOrNull())
+                        val response = fileApi.uploadFile(part, isPublic, notifyWs, source, deviceName, clientIdPart)
+                        webSocketService.addLocalFileMessage(response.file)
+                    } catch (e: Exception) {
+                        Toast.makeText(context, "上传失败: ${e.message}", Toast.LENGTH_SHORT).show()
                     }
-                    val isPublic = "false".toRequestBody("text/plain".toMediaTypeOrNull())
-                    val notifyWs = "true".toRequestBody("text/plain".toMediaTypeOrNull())
-                    val source = "chat".toRequestBody("text/plain".toMediaTypeOrNull())
-                    val deviceName = "Android".toRequestBody("text/plain".toMediaTypeOrNull())
-                    val clientIdPart = webSocketService.clientId.toRequestBody("text/plain".toMediaTypeOrNull())
-                    val response = fileApi.uploadFile(part, isPublic, notifyWs, source, deviceName, clientIdPart)
-                    webSocketService.addLocalFileMessage(response.file)
-                } catch (e: Exception) {
-                    Toast.makeText(context, "上传失败: ${e.message}", Toast.LENGTH_SHORT).show()
                 }
             }
         }
@@ -299,10 +303,11 @@ fun ChatScreen(
             }
         }
 
-        // Input Bar - overlay at bottom, follow IME with continuous insets (no flicker)
+        // Input Bar
         Surface(
             shape = RoundedCornerShape(28.dp),
-            color = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.3f),
+            color = MaterialTheme.colorScheme.surfaceVariant,
+            tonalElevation = 2.dp,
             modifier = Modifier
                 .align(Alignment.BottomCenter)
                 .fillMaxWidth()
@@ -327,7 +332,7 @@ fun ChatScreen(
                     contentAlignment = Alignment.CenterStart,
                     modifier = Modifier
                         .weight(1f)
-                        .heightIn(min = 40.dp)
+                        .heightIn(min = 40.dp, max = 120.dp)
                         .padding(vertical = 8.dp)
                 ) {
                     if (input.isEmpty()) {
@@ -344,11 +349,13 @@ fun ChatScreen(
                             color = MaterialTheme.colorScheme.onSurface
                         ),
                         cursorBrush = androidx.compose.ui.graphics.SolidColor(MaterialTheme.colorScheme.primary),
-                        modifier = Modifier.fillMaxWidth()
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .verticalScroll(rememberScrollState())
                     )
                 }
 
-                // Send Button - 始终显示，通过透明度和缩放动画
+                // Send Button
                 val sendButtonAlpha by animateFloatAsState(
                     targetValue = if (input.isNotBlank()) 1f else 0.3f,
                     animationSpec = tween(150),
@@ -422,32 +429,34 @@ fun MessageBubble(message: WSMessage, tokenManager: TokenManager, onDownload: (W
         if (!isOwn) {
             Text(
                 text = message.deviceName,
-                style = MaterialTheme.typography.labelSmall,
-                color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.7f),
-                modifier = Modifier.padding(start = 12.dp, bottom = 4.dp)
+                style = MaterialTheme.typography.labelSmall.copy(fontWeight = FontWeight.Medium),
+                color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.8f),
+                modifier = Modifier.padding(start = 16.dp, bottom = 4.dp)
             )
         }
 
         Surface(
-            color = if (isOwn) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.surfaceVariant,
-            shape = if (isOwn) 
-                RoundedCornerShape(20.dp, 20.dp, 4.dp, 20.dp) 
-            else 
-                RoundedCornerShape(20.dp, 20.dp, 20.dp, 4.dp),
+            color = if (isOwn) Color(0xFF2B2B2B) else MaterialTheme.colorScheme.secondaryContainer,
+            shape = if (isOwn)
+                RoundedCornerShape(20.dp, 20.dp, 6.dp, 20.dp)
+            else
+                RoundedCornerShape(20.dp, 20.dp, 20.dp, 6.dp),
             modifier = Modifier
-                .widthIn(max = 280.dp)
+                .widthIn(max = 300.dp)
                 .clickable(enabled = message.type == "file") {
                     if (message.type == "file") onDownload(message)
                 },
-            shadowElevation = 1.dp
+            shadowElevation = 2.dp,
+            tonalElevation = if (isOwn) 0.dp else 1.dp,
+            border = if (!isOwn) BorderStroke(1.dp, MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.3f)) else null
         ) {
-            Column(modifier = Modifier.padding(12.dp)) {
+            Column(modifier = Modifier.padding(14.dp)) {
                 if (message.type == "file") {
                     if (message.mimeType.startsWith("image/") && message.fileId.isNotEmpty()) {
                         Surface(
-                            shape = RoundedCornerShape(8.dp),
-                            color = Color.Black.copy(alpha = 0.1f),
-                            modifier = Modifier.padding(bottom = 8.dp)
+                            shape = RoundedCornerShape(12.dp),
+                            color = Color.Black.copy(alpha = 0.05f),
+                            modifier = Modifier.padding(bottom = 10.dp)
                         ) {
                             AsyncImage(
                                 model = ImageRequest.Builder(LocalContext.current)
@@ -458,8 +467,9 @@ fun MessageBubble(message: WSMessage, tokenManager: TokenManager, onDownload: (W
                                 contentDescription = message.filename,
                                 contentScale = ContentScale.Crop,
                                 modifier = Modifier
-                                    .width(200.dp)
-                                    .heightIn(max = 200.dp)
+                                    .width(220.dp)
+                                    .heightIn(max = 220.dp)
+                                    .clip(RoundedCornerShape(12.dp))
                             )
                         }
                     }
@@ -467,21 +477,21 @@ fun MessageBubble(message: WSMessage, tokenManager: TokenManager, onDownload: (W
                     // File Attachment UI
                     Row(
                         verticalAlignment = Alignment.CenterVertically,
-                        horizontalArrangement = Arrangement.spacedBy(8.dp)
+                        horizontalArrangement = Arrangement.spacedBy(10.dp)
                     ) {
                         Surface(
-                            shape = RoundedCornerShape(8.dp),
-                            color = if (isOwn) Color.White.copy(alpha = 0.2f) else MaterialTheme.colorScheme.background.copy(alpha = 0.5f),
-                            modifier = Modifier.size(32.dp)
+                            shape = RoundedCornerShape(10.dp),
+                            color = if (isOwn) Color.White.copy(alpha = 0.2f) else MaterialTheme.colorScheme.primaryContainer.copy(alpha = 0.5f),
+                            modifier = Modifier.size(36.dp)
                         ) {
                             Box(contentAlignment = Alignment.Center) {
                                 Text(
                                     text = message.filename.extension().uppercase().take(3),
                                     style = MaterialTheme.typography.labelSmall.copy(
-                                        fontSize = 8.sp,
+                                        fontSize = 9.sp,
                                         fontWeight = FontWeight.Bold
                                     ),
-                                    color = if (isOwn) Color.White else MaterialTheme.colorScheme.onSurface
+                                    color = if (isOwn) Color.White else MaterialTheme.colorScheme.primary
                                 )
                             }
                         }
@@ -489,22 +499,22 @@ fun MessageBubble(message: WSMessage, tokenManager: TokenManager, onDownload: (W
                         Column {
                             Text(
                                 text = message.filename,
-                                style = MaterialTheme.typography.bodySmall.copy(fontWeight = FontWeight.Medium),
+                                style = MaterialTheme.typography.bodySmall.copy(fontWeight = FontWeight.SemiBold),
                                 color = if (isOwn) Color.White else MaterialTheme.colorScheme.onSurface,
                                 maxLines = 1
                             )
                             Text(
                                 text = "点击下载",
-                                style = MaterialTheme.typography.labelSmall.copy(fontSize = 10.sp),
-                                color = if (isOwn) Color.White.copy(alpha = 0.7f) else MaterialTheme.colorScheme.onSurfaceVariant
+                                style = MaterialTheme.typography.labelSmall.copy(fontSize = 11.sp),
+                                color = if (isOwn) Color.White.copy(alpha = 0.75f) else MaterialTheme.colorScheme.onSurfaceVariant
                             )
                         }
                     }
                 } else {
                     Text(
                         text = message.content,
-                        style = MaterialTheme.typography.bodyMedium,
-                        color = if (isOwn) MaterialTheme.colorScheme.onPrimary else MaterialTheme.colorScheme.onSurfaceVariant
+                        style = MaterialTheme.typography.bodyMedium.copy(lineHeight = 22.sp),
+                        color = if (isOwn) Color.White else MaterialTheme.colorScheme.onSurface
                     )
                 }
             }

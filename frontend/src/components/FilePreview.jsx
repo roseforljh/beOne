@@ -2,6 +2,42 @@ import { useState, useEffect } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { api } from '../utils/api';
 
+async function saveBlobWithPicker(blob, filename) {
+  const picker = window?.showSaveFilePicker;
+  if (typeof picker === 'function') {
+    try {
+      const ext = (filename || '').includes('.') ? filename.split('.').pop() : '';
+      const handle = await picker({
+        suggestedName: filename || 'download',
+        types: ext
+          ? [
+              {
+                description: 'File',
+                accept: { 'application/octet-stream': [`.${ext}`] },
+              },
+            ]
+          : undefined,
+      });
+      const writable = await handle.createWritable();
+      await writable.write(blob);
+      await writable.close();
+      return;
+    } catch (e) {
+      if (e?.name === 'AbortError') return;
+      console.error('showSaveFilePicker failed, fallback to default download:', e);
+    }
+  }
+
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement('a');
+  a.href = url;
+  a.download = filename || 'download';
+  document.body.appendChild(a);
+  a.click();
+  a.remove();
+  URL.revokeObjectURL(url);
+}
+
 export default function FilePreview({ file, onClose }) {
   const [textContent, setTextContent] = useState('');
   const [loadingText, setLoadingText] = useState(false);
@@ -45,8 +81,12 @@ export default function FilePreview({ file, onClose }) {
     }
   }, [file.id, isText]);
 
-  const handleDownload = () => {
-    window.open(api.getDownloadUrl(file.id), '_blank');
+  const handleDownload = async () => {
+    const url = api.getDownloadUrl(file.id);
+    const resp = await fetch(url);
+    if (!resp.ok) throw new Error(`HTTP ${resp.status}`);
+    const blob = await resp.blob();
+    await saveBlobWithPicker(blob, file.original_name);
   };
 
   return (

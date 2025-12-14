@@ -12,6 +12,43 @@ import { cn } from '@/lib/utils';
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from '@/components/ui/dropdown-menu';
 import { ConversationSidebar } from '@/components/ConversationSidebar';
 
+async function saveBlobWithPicker(blob: Blob, filename?: string) {
+  const picker = (window as any)?.showSaveFilePicker;
+  if (typeof picker === 'function') {
+    try {
+      const name = filename || 'download';
+      const ext = name.includes('.') ? name.split('.').pop() : '';
+      const handle = await picker({
+        suggestedName: name,
+        types: ext
+          ? [
+              {
+                description: 'File',
+                accept: { 'application/octet-stream': [`.${ext}`] },
+              },
+            ]
+          : undefined,
+      });
+      const writable = await handle.createWritable();
+      await writable.write(blob);
+      await writable.close();
+      return;
+    } catch (e: any) {
+      if (e?.name === 'AbortError') return;
+      console.error('showSaveFilePicker failed, fallback to default download:', e);
+    }
+  }
+
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement('a');
+  a.href = url;
+  a.download = filename || 'download';
+  document.body.appendChild(a);
+  a.click();
+  a.remove();
+  URL.revokeObjectURL(url);
+}
+
 function FileMessageContent({
   msg,
   isMe,
@@ -204,14 +241,7 @@ export default function ChatPage() {
     if (!fileId) return;
     try {
       const { blob, filename: inferred } = await filesApi.download(fileId);
-      const url = URL.createObjectURL(blob);
-      const a = document.createElement('a');
-      a.href = url;
-      a.download = filename || inferred || 'download';
-      document.body.appendChild(a);
-      a.click();
-      a.remove();
-      URL.revokeObjectURL(url);
+      await saveBlobWithPicker(blob, filename || inferred || 'download');
     } catch (e) {
       console.error(e);
       toast.error('下载失败');

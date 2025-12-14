@@ -8,6 +8,42 @@ import { Toast as CapacitorToast } from '@capacitor/toast';
 import ConfirmDialog from './ConfirmDialog';
 import Toast from './Toast';
 
+async function saveBlobWithPicker(blob, filename) {
+  const picker = window?.showSaveFilePicker;
+  if (typeof picker === 'function') {
+    try {
+      const ext = (filename || '').includes('.') ? filename.split('.').pop() : '';
+      const handle = await picker({
+        suggestedName: filename || 'download',
+        types: ext
+          ? [
+              {
+                description: 'File',
+                accept: { 'application/octet-stream': [`.${ext}`] },
+              },
+            ]
+          : undefined,
+      });
+      const writable = await handle.createWritable();
+      await writable.write(blob);
+      await writable.close();
+      return;
+    } catch (e) {
+      if (e?.name === 'AbortError') return;
+      console.error('showSaveFilePicker failed, fallback to default download:', e);
+    }
+  }
+
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement('a');
+  a.href = url;
+  a.download = filename || 'download';
+  document.body.appendChild(a);
+  a.click();
+  a.remove();
+  URL.revokeObjectURL(url);
+}
+
 export default function FileCard({ file, onUpdate, onDelete, onPreview }) {
   const [isDeleting, setIsDeleting] = useState(false);
   const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
@@ -130,7 +166,10 @@ export default function FileCard({ file, onUpdate, onDelete, onPreview }) {
         });
       }
     } else {
-      window.open(api.getDownloadUrl(file.id), '_blank');
+      const response = await axiosInstance.get(`/api/files/${file.id}/download`, {
+        responseType: 'blob',
+      });
+      await saveBlobWithPicker(response.data, file.original_name);
     }
   };
 
