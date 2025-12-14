@@ -226,7 +226,10 @@ export default function ChatPage() {
     setUploading(true);
     try {
       const response = await filesApi.upload(file, false, 'Web', wsClient.getClientId(), true, 'chat');
-      addMessageToCurrentConversation({ id: Date.now().toString(), type: 'file', content: file.name, device_name: 'Web', timestamp: new Date(), file_id: response.file.id, filename: response.file.filename, mime_type: response.file.mime_type, isOwn: true });
+      const msg: WSMessage = { id: Date.now().toString(), type: 'file', content: file.name, device_name: 'Web', timestamp: new Date(), file_id: response.file.id, filename: response.file.filename, mime_type: response.file.mime_type, isOwn: true };
+      addMessageToCurrentConversation(msg);
+      // Save to backend so other devices can fetch history
+      addMessageToBackend(msg);
       toast.success('上传成功');
     } catch { toast.error('上传失败'); }
     finally { setUploading(false); }

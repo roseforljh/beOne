@@ -86,13 +86,18 @@ class WebSocketService(
                     if (type == "conversations_event") {
                         val action = json.optString("action", "")
                         Log.d("WebSocket", "Conversations event received: action=$action")
+                        
+                        // Extract device_name from nested message object if present
+                        val messageObj = json.optJSONObject("message")
+                        val deviceNameFromMessage = messageObj?.optString("device_name", "") ?: ""
+                        
                         val evt = WSMessage(
                             type = "conversations_event",
                             content = action,
                             filename = "",
                             fileId = json.optString("conversation_id", ""),
                             mimeType = "",
-                            deviceName = json.optString("device_name", ""),
+                            deviceName = deviceNameFromMessage,
                             timestamp = System.currentTimeMillis(),
                             isOwn = false
                         )
