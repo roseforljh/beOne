@@ -120,11 +120,16 @@ fun ChatScreen(
         }
     }
 
+    // Track which conversation we've already synced to avoid overwriting real-time messages
+    var syncedConversationId by remember { mutableStateOf<String?>(null) }
+
     LaunchedEffect(connectionState, currentConversation?.id) {
         if (connectionState == ConnectionState.CONNECTED) {
             val conv = currentConversation
-            if (conv != null) {
+            // Only sync messages when switching to a different conversation
+            if (conv != null && conv.id != syncedConversationId) {
                 webSocketService.setMessages(conv.messages)
+                syncedConversationId = conv.id
             }
         }
     }
@@ -401,17 +406,16 @@ fun ChatScreen(
             currentConversationId = currentConversation?.id,
             onSelectConversation = { conversationId ->
                 conversationRepository.selectConversation(conversationId)
-                val selectedConv = conversations.find { it.id == conversationId }
-                webSocketService.setMessages(selectedConv?.messages ?: emptyList())
+                syncedConversationId = null  // Reset so LaunchedEffect will sync
             },
             onNewConversation = {
                 conversationRepository.createNewConversation()
                 webSocketService.clearMessages()
+                syncedConversationId = null
             },
             onDeleteConversation = { conversationId ->
                 conversationRepository.deleteConversation(conversationId)
-                val current = conversationRepository.currentConversation.value
-                webSocketService.setMessages(current?.messages ?: emptyList())
+                syncedConversationId = null
             },
             onDismiss = { showHistorySheet = false }
         )

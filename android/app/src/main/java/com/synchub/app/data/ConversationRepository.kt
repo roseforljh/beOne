@@ -187,7 +187,7 @@ class ConversationRepository(
             return
         }
 
-        // Regular message - add locally and to backend
+        // Regular message - add locally
         val current = _currentConversation.value ?: return
         val updatedConversation = current.copy(
             messages = current.messages + message,
@@ -198,22 +198,25 @@ class ConversationRepository(
         )
         updateConversationLocally(updatedConversation)
 
-        // Save to backend
-        scope.launch {
-            try {
-                conversationApi.addMessage(
-                    current.id,
-                    ConversationMessageRequest(
-                        type = message.type,
-                        content = if (message.type == "text") message.content else null,
-                        filename = message.filename.ifEmpty { null },
-                        file_id = message.fileId.ifEmpty { null },
-                        mime_type = message.mimeType.ifEmpty { null },
-                        device_name = message.deviceName
+        // Only save to backend if this is our own message (isOwn=true)
+        // Received messages (isOwn=false) are already saved by the sender
+        if (message.isOwn) {
+            scope.launch {
+                try {
+                    conversationApi.addMessage(
+                        current.id,
+                        ConversationMessageRequest(
+                            type = message.type,
+                            content = if (message.type == "text") message.content else null,
+                            filename = message.filename.ifEmpty { null },
+                            file_id = message.fileId.ifEmpty { null },
+                            mime_type = message.mimeType.ifEmpty { null },
+                            device_name = message.deviceName
+                        )
                     )
-                )
-            } catch (e: Exception) {
-                Log.e("ConversationRepo", "Failed to add message to backend", e)
+                } catch (e: Exception) {
+                    Log.e("ConversationRepo", "Failed to add message to backend", e)
+                }
             }
         }
     }

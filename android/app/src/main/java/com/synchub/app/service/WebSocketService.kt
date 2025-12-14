@@ -129,12 +129,17 @@ class WebSocketService(
                         return
                     }
                     
+                    val fileId = json.optString("file_id", "")
+                    val filename = json.optString("filename", "")
+                    val mimeType = json.optString("mime_type", "")
+                    Log.d("WebSocket", "Parsing file message: fileId=$fileId, filename=$filename, mimeType=$mimeType")
+                    
                     val message = WSMessage(
                         type = type,
                         content = json.optString("content", ""),
-                        filename = json.optString("filename", ""),
-                        fileId = json.optString("file_id", ""),
-                        mimeType = json.optString("mime_type", ""),
+                        filename = filename,
+                        fileId = fileId,
+                        mimeType = mimeType,
                         deviceName = json.optString("device_name", "Unknown"),
                         timestamp = System.currentTimeMillis(),
                         isOwn = false

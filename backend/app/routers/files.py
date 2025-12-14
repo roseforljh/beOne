@@ -126,7 +126,10 @@ async def get_file(
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="File not found")
     
     file_service = FileService(db)
-    return await file_service.stream_file(file_record)
+    try:
+        return await file_service.stream_file(file_record)
+    except FileNotFoundError:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="File not found on disk")
 
 
 @router.get("/{file_id}/thumb")

@@ -103,8 +103,11 @@ class FileService:
         """流式返回文件内容"""
         file_path = Path(file_record.file_path)
         
+        print(f"[FileService] Attempting to stream file: {file_path}, exists: {file_path.exists()}")
+        
         if not file_path.exists():
-            raise FileNotFoundError("File not found on disk")
+            print(f"[FileService] File not found on disk: {file_path}")
+            raise FileNotFoundError(f"File not found on disk: {file_path}")
         
         async def file_iterator():
             async with aiofiles.open(file_path, "rb") as f:

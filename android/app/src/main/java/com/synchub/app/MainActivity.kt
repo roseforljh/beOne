@@ -264,6 +264,7 @@ class MainActivity : ComponentActivity() {
                                 conversationRepository = conversationRepository,
                                 fileApi = fileApi,
                                 onDownload = { msg ->
+                                    android.util.Log.d("MainActivity", "onDownload called: type=${msg.type}, fileId=${msg.fileId}, filename=${msg.filename}")
                                     if (msg.fileId.isNotEmpty()) {
                                         DownloadUtil.downloadFile(
                                             context = applicationContext,
@@ -272,6 +273,9 @@ class MainActivity : ComponentActivity() {
                                             filename = msg.filename,
                                             mimeType = msg.mimeType
                                         )
+                                    } else {
+                                        android.util.Log.w("MainActivity", "fileId is empty, cannot download")
+                                        Toast.makeText(applicationContext, "无法下载：文件ID为空", Toast.LENGTH_SHORT).show()
                                     }
                                 },
                                 bottomNavHeight = bottomNavHeightForScreens
