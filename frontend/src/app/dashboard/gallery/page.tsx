@@ -1,11 +1,10 @@
 'use client';
 
-import { useEffect, useState } from 'react';
+import { useEffect, useState, useRef } from 'react';
 import { Button } from '@/components/ui/button';
 import { Card } from '@/components/ui/card';
 import { ScrollArea } from '@/components/ui/scroll-area';
-import { filesApi } from '@/lib/api';
-import { API_BASE_URL } from '@/lib/api';
+import { filesApi, API_BASE_URL, api } from '@/lib/api';
 import { wsClient } from '@/lib/websocket';
 import { 
   Plus, 
@@ -46,19 +45,35 @@ export default function GalleryPage() {
   const [copiedId, setCopiedId] = useState<string | null>(null);
   const [uploadTasks, setUploadTasks] = useState<UploadTask[]>([]);
   const [loadingImages, setLoadingImages] = useState<Set<string>>(new Set());
+  const [privateThumbUrls, setPrivateThumbUrls] = useState<Record<string, string>>({});
+  const privateThumbUrlsRef = useRef<Record<string, string>>({});
 
   const getShareUrl = (publicUrl: string) => {
     return publicUrl.startsWith('http') ? publicUrl : `${API_BASE_URL}${publicUrl}`;
   };
 
   const getThumbUrl = (img: FileItem) => {
-    // 优先使用公开缩略图（无需认证），否则使用私有缩略图
+    // 优先使用公开缩略图（无需认证）
     if (img.public_url) {
       const base = img.public_url.startsWith('http') ? img.public_url : `${API_BASE_URL}${img.public_url}`;
       return `${base}/thumb?size=300`;
     }
-    // 私有图片使用 API 缩略图接口
-    return `${API_BASE_URL}/api/v1/files/${img.id}/thumb?size=300`;
+    // 私有图片使用预加载的 blob URL
+    return privateThumbUrls[img.id] || null;
+  };
+
+  const ensurePrivateThumb = async (img: FileItem) => {
+    if (img.public_url) return; // 公开图片不需要预加载
+    if (privateThumbUrlsRef.current[img.id]) return;
+    try {
+      const res = await api.get(`/api/v1/files/${img.id}/thumb?size=300`, { responseType: 'blob' });
+      const blob = res.data as Blob;
+      const url = URL.createObjectURL(blob);
+      privateThumbUrlsRef.current = { ...privateThumbUrlsRef.current, [img.id]: url };
+      setPrivateThumbUrls((prev) => ({ ...prev, [img.id]: url }));
+    } catch {
+      // ignore
+    }
   };
 
   const fetchImages = async () => {
@@ -79,6 +94,11 @@ export default function GalleryPage() {
   useEffect(() => {
     fetchImages();
   }, []);
+
+  // 预加载没有 public_url 的图片缩略图
+  useEffect(() => {
+    images.filter(img => !img.public_url).forEach(img => ensurePrivateThumb(img));
+  }, [images]);
 
   const uploadSingle = async (taskId: string) => {
     const task = uploadTasks.find(t => t.id === taskId);
@@ -334,11 +354,19 @@ export default function GalleryPage() {
                   )}
                   {/* eslint-disable-next-line @next/next/no-img-element */}
                   <img 
-                    src={getThumbUrl(img)} 
+                    src={getThumbUrl(img) || undefined} 
                     className={`w-full h-full object-cover group-hover:scale-105 transition-transform duration-700 ease-out ${loadingImages.has(img.id) ? 'opacity-0' : 'opacity-100'}`}
                     alt={img.filename}
                     onLoad={() => setLoadingImages(prev => { const next = new Set(prev); next.delete(img.id); return next; })}
-                    onError={() => setLoadingImages(prev => { const next = new Set(prev); next.delete(img.id); return next; })}
+                    onError={(e) => {
+                      // 缩略图加载失败时回退到原图
+                      const target = e.target as HTMLImageElement;
+                      const fallback = img.public_url ? getShareUrl(img.public_url) : img.download_url;
+                      if (target.src !== fallback) {
+                        target.src = fallback;
+                      }
+                      setLoadingImages(prev => { const next = new Set(prev); next.delete(img.id); return next; });
+                    }}
                   />
                    
                   {/* 悬停遮罩 */}

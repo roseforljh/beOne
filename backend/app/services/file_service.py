@@ -10,6 +10,7 @@ from fastapi import UploadFile
 from fastapi.responses import StreamingResponse, Response
 from sqlalchemy.ext.asyncio import AsyncSession
 from PIL import Image
+import magic
 
 from app.config import settings
 from app.models.file import File
@@ -59,13 +60,22 @@ class FileService:
         
         # 创建数据库记录
         share_token = self._generate_share_token() if is_public else None
-        
+
+        detected_mime_type: Optional[str] = None
+        try:
+            detected_mime_type = magic.from_buffer(content, mime=True)
+        except Exception:
+            detected_mime_type = None
+
+        # 优先使用内容探测的 mime_type，避免客户端上报不准导致浏览器解码失败
+        mime_type = detected_mime_type or file.content_type
+
         file_record = File(
             user_id=user_id,
             filename=file.filename,
             file_path=str(storage_path),
             size=file_size,
-            mime_type=file.content_type,
+            mime_type=mime_type,
             is_public=is_public,
             source=source,
             share_token=share_token,
