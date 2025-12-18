@@ -33,8 +33,10 @@ import androidx.compose.ui.draw.clip
 import androidx.compose.ui.draw.scale
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.layout.ContentScale
+import androidx.compose.ui.platform.LocalClipboardManager
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalDensity
+import androidx.compose.ui.text.AnnotatedString
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
@@ -57,6 +59,11 @@ import androidx.activity.result.contract.ActivityResultContracts
 import okhttp3.MediaType.Companion.toMediaTypeOrNull
 import okhttp3.RequestBody.Companion.toRequestBody
 import com.synchub.app.utils.FileUtil
+import java.text.SimpleDateFormat
+import java.util.Date
+import java.util.Locale
+
+import androidx.compose.material.icons.filled.ContentCopy
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -79,6 +86,7 @@ fun ChatScreen(
     var showHistorySheet by remember { mutableStateOf(false) }
     var isUploading by remember { mutableStateOf(false) }
     var uploadProgress by remember { mutableFloatStateOf(0f) }
+    var pendingDownloadMessage by remember { mutableStateOf<WSMessage?>(null) }
     val inputBarReservedHeight = 80.dp
     val density = LocalDensity.current
     val systemNavBarHeightDp = with(density) { WindowInsets.navigationBars.getBottom(density).toDp() }
@@ -175,6 +183,30 @@ fun ChatScreen(
             },
             dismissButton = {
                 TextButton(onClick = { showClearDialog = false }) {
+                    Text("取消")
+                }
+            }
+        )
+    }
+
+    // Download Confirmation Dialog
+    if (pendingDownloadMessage != null) {
+        AlertDialog(
+            onDismissRequest = { pendingDownloadMessage = null },
+            title = { Text("确认下载") },
+            text = { Text("是否下载文件：${pendingDownloadMessage?.filename}？") },
+            confirmButton = {
+                TextButton(
+                    onClick = {
+                        pendingDownloadMessage?.let { onDownload(it) }
+                        pendingDownloadMessage = null
+                    }
+                ) {
+                    Text("下载")
+                }
+            },
+            dismissButton = {
+                TextButton(onClick = { pendingDownloadMessage = null }) {
                     Text("取消")
                 }
             }
@@ -319,7 +351,11 @@ fun ChatScreen(
                         ),
                         verticalArrangement = Arrangement.spacedBy(12.dp)
                     ) {
-                        items(messages) { msg -> MessageBubble(msg, tokenManager, onDownload) }
+                        items(messages) { msg -> 
+                            MessageBubble(msg, tokenManager) { targetMsg ->
+                                pendingDownloadMessage = targetMsg
+                            }
+                        }
                     }
                 }
             }
@@ -466,6 +502,15 @@ fun ChatScreen(
 @Composable
 fun MessageBubble(message: WSMessage, tokenManager: TokenManager, onDownload: (WSMessage) -> Unit) {
     val isOwn = message.isOwn
+    val clipboardManager = LocalClipboardManager.current
+    val context = LocalContext.current
+    val timeText = remember(message.timestamp) {
+        try {
+            SimpleDateFormat("HH:mm", Locale.getDefault()).format(Date(message.timestamp))
+        } catch (_: Exception) {
+            ""
+        }
+    }
     
     Column(
         modifier = Modifier.fillMaxWidth(),
@@ -560,6 +605,39 @@ fun MessageBubble(message: WSMessage, tokenManager: TokenManager, onDownload: (W
                         text = message.content,
                         style = MaterialTheme.typography.bodyMedium.copy(lineHeight = 22.sp),
                         color = if (isOwn) Color.White else MaterialTheme.colorScheme.onSurface
+                    )
+                }
+            }
+        }
+
+        if (message.type != "file") {
+            Row(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(top = 4.dp, start = 10.dp, end = 10.dp),
+                horizontalArrangement = if (isOwn) Arrangement.End else Arrangement.Start,
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                if (timeText.isNotBlank()) {
+                    Text(
+                        text = timeText,
+                        style = MaterialTheme.typography.labelSmall,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.7f)
+                    )
+                    Spacer(modifier = Modifier.width(6.dp))
+                }
+                IconButton(
+                    onClick = {
+                        clipboardManager.setText(AnnotatedString(message.content))
+                        Toast.makeText(context, "已复制", Toast.LENGTH_SHORT).show()
+                    },
+                    modifier = Modifier.size(28.dp)
+                ) {
+                    Icon(
+                        imageVector = Icons.Filled.ContentCopy,
+                        contentDescription = "复制",
+                        tint = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.75f),
+                        modifier = Modifier.size(16.dp)
                     )
                 }
             }
