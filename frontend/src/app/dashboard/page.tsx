@@ -280,7 +280,7 @@ export default function ChatPage() {
   };
 
   return (
-    <div className="flex flex-col min-h-full pb-32 relative">
+    <div className="flex flex-col h-full min-h-0 relative overflow-hidden">
       {/* Conversation Sidebar */}
       <ConversationSidebar 
         isOpen={sidebarOpen} 
@@ -322,7 +322,7 @@ export default function ChatPage() {
         )}
       </div>
 
-      <ScrollArea className="flex-1">
+      <ScrollArea className="flex-1 min-h-0">
         <div className="p-4 md:p-8 space-y-6 max-w-4xl mx-auto w-full">
           {messages.length === 0 ? (
             <div className="flex flex-col items-center justify-center h-[50vh] text-center space-y-4">
@@ -380,7 +380,7 @@ export default function ChatPage() {
         </div>
       </ScrollArea>
 
-      <div className="absolute bottom-6 left-0 right-0 px-4 flex justify-center z-30">
+      <div className="flex-none px-4 pb-6 pt-4 flex justify-center z-30">
         <div className="w-full max-w-3xl flex flex-col gap-2">
           {uploading && (
             <div className="bg-card/90 backdrop-blur-xl border border-border/30 rounded-xl p-3 flex items-center gap-3">
