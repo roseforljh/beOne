@@ -60,7 +60,7 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
   const isChatPage = pathname === '/dashboard';
 
   return (
-    <div className="min-h-screen flex bg-background text-foreground">
+    <div className="h-screen w-full overflow-hidden flex bg-background text-foreground">
       <aside className="w-64 border-r border-border/60 bg-card/20 flex-col hidden md:flex backdrop-blur-sm">
         <div className="p-6">
           <div className="flex items-center gap-3 font-bold text-xl tracking-tight">
@@ -130,7 +130,7 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
             </Button>
           </div>
         </header>
-        <div className={cn("flex-1 min-h-0", isChatPage ? "overflow-hidden" : "overflow-y-auto")}>{children}</div>
+        <div className={cn("flex-1", isChatPage ? "overflow-hidden" : "overflow-y-auto")}>{children}</div>
         <AlertDialog open={logoutConfirmOpen} onOpenChange={setLogoutConfirmOpen}>
           <AlertDialogContent>
             <AlertDialogHeader>
