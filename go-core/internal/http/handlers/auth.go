@@ -150,7 +150,7 @@ func (h *AuthHandler) OAuthCallback(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	redirectURL := fmt.Sprintf("%s/login?token=%s&provider=%s", strings.TrimRight(h.cfg.FrontendURL, "/"), url.QueryEscape(jwtToken), url.QueryEscape(provider))
+	redirectURL := fmt.Sprintf("%s/login?token=%s&provider=%s", h.frontendBaseURL(r), url.QueryEscape(jwtToken), url.QueryEscape(provider))
 	http.Redirect(w, r, redirectURL, http.StatusFound)
 }
 
@@ -186,6 +186,18 @@ func (h *AuthHandler) oauthCallbackURL(provider string, r *http.Request) string 
 		base = fmt.Sprintf("%s://%s", scheme, r.Host)
 	}
 	return fmt.Sprintf("%s/api/v1/auth/oauth/%s/callback", base, url.PathEscape(provider))
+}
+
+func (h *AuthHandler) frontendBaseURL(r *http.Request) string {
+	base := strings.TrimRight(h.cfg.FrontendURL, "/")
+	if base != "" {
+		return base
+	}
+	scheme := "http"
+	if isSecureRequest(r) {
+		scheme = "https"
+	}
+	return fmt.Sprintf("%s://%s", scheme, r.Host)
 }
 
 func (h *AuthHandler) providerAuthURL(provider, clientID, state, redirectURI string) string {

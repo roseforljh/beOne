@@ -63,6 +63,8 @@ services:
     restart: unless-stopped
     environment:
       GO_CORE_PORT: "8080"
+      GO_CORE_PUBLIC_URL: ${GO_CORE_PUBLIC_URL:-}
+      FRONTEND_URL: ${FRONTEND_URL:-}
       DATABASE_URL: postgres://synchub:synchub123@postgres:5432/synchub?sslmode=disable
       REDIS_ADDR: redis:6379
       MINIO_ENDPOINT: minio:9000
@@ -70,8 +72,12 @@ services:
       MINIO_SECRET_KEY: minioadmin
       MINIO_BUCKET: synchub
       MINIO_SECURE: "false"
-      JWT_SECRET: dev-jwt-secret-change-me
+      JWT_SECRET: ${JWT_SECRET:-dev-jwt-secret-change-me}
       JWT_TTL_MINUTES: "10080"
+      GITHUB_CLIENT_ID: ${GITHUB_CLIENT_ID}
+      GITHUB_CLIENT_SECRET: ${GITHUB_CLIENT_SECRET}
+      GOOGLE_CLIENT_ID: ${GOOGLE_CLIENT_ID}
+      GOOGLE_CLIENT_SECRET: ${GOOGLE_CLIENT_SECRET}
     volumes:
       - uploads_data:/app/uploads
     ports:

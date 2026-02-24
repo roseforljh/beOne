@@ -33,7 +33,7 @@ func Load() Config {
 	return Config{
 		Port:               port,
 		PublicBaseURL:      getenv("GO_CORE_PUBLIC_URL", ""),
-		FrontendURL:        getenv("FRONTEND_URL", "http://localhost:3000"),
+		FrontendURL:        getenv("FRONTEND_URL", ""),
 		DatabaseURL:        getenv("DATABASE_URL", "postgres://synchub:synchub123@postgres:5432/synchub?sslmode=disable"),
 		RedisAddr:          getenv("REDIS_ADDR", "redis:6379"),
 		MinioEndpoint:      getenv("MINIO_ENDPOINT", "minio:9000"),
