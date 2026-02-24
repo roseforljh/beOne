@@ -33,6 +33,8 @@ func NewRouter(cfg config.Config, uploadSvc *service.UploadService, convSvc *ser
 
 	r.Get("/health", handlers.Health)
 	r.Post("/api/v1/auth/dev-login", authHandler.DevLogin)
+	r.Get("/api/v1/auth/oauth/{provider}/login", authHandler.OAuthLogin)
+	r.Get("/api/v1/auth/oauth/{provider}/callback", authHandler.OAuthCallback)
 	r.Get("/ws/{clientID}", hub.HandleWS)
 
 	r.Group(func(pr chi.Router) {

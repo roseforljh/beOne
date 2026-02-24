@@ -20,8 +20,20 @@ export default function LoginPage() {
     const params = new URLSearchParams(window.location.search);
     const token = params.get('token');
     const provider = params.get('provider');
+    const reason = params.get('reason');
 
-    if (!token) return;
+    if (reason === 'expired') {
+      toast.error('登录已过期，请重新登录');
+    }
+
+    const onAuthExpired = () => {
+      toast.error('登录已过期，请重新登录');
+    };
+    window.addEventListener('auth:expired', onAuthExpired as EventListener);
+
+    if (!token) {
+      return () => window.removeEventListener('auth:expired', onAuthExpired as EventListener);
+    }
 
     localStorage.setItem('token', token);
     authApi
@@ -36,6 +48,8 @@ export default function LoginPage() {
         localStorage.removeItem('token');
         toast.error('OAuth login failed');
       });
+
+    return () => window.removeEventListener('auth:expired', onAuthExpired as EventListener);
   }, [router, setAuth]);
 
   const handleDevLogin = async () => {

@@ -1,4 +1,5 @@
 import axios from 'axios';
+import { handleAuthExpired } from './auth-token';
 
 const getApiBaseUrl = () => {
   const envUrl = process.env.NEXT_PUBLIC_API_URL;
@@ -61,10 +62,7 @@ api.interceptors.response.use(
   (response) => response,
   (error) => {
     if (error.response?.status === 401) {
-      if (typeof window !== 'undefined') {
-        localStorage.removeItem('token');
-        window.location.href = '/login';
-      }
+      handleAuthExpired();
     }
     return Promise.reject(error);
   }

@@ -1,5 +1,7 @@
 'use client';
 
+import { handleAuthExpired, isJwtExpired } from './auth-token';
+
 export type ConnectionState = 'disconnected' | 'connecting' | 'connected' | 'failed';
 type MessageHandler = (data: unknown) => void;
 type ConnectionStateHandler = (state: ConnectionState) => void;
@@ -31,6 +33,12 @@ class WebSocketClient {
 
   connect(token: string) {
     if (this.ws?.readyState === WebSocket.OPEN) return;
+
+    if (isJwtExpired(token)) {
+      this.disconnect();
+      handleAuthExpired();
+      return;
+    }
 
     this.currentToken = token;
     this.setConnectionState('connecting');
@@ -91,6 +99,12 @@ class WebSocketClient {
   }
 
   private tryReconnect(token: string) {
+    if (isJwtExpired(token)) {
+      this.setConnectionState('failed');
+      handleAuthExpired();
+      return;
+    }
+
     if (this.reconnectAttempts < this.maxReconnectAttempts) {
       this.reconnectAttempts++;
       console.log(`Reconnecting... Attempt ${this.reconnectAttempts}`);
