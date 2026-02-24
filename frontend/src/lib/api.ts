@@ -2,8 +2,18 @@ import axios from 'axios';
 import { handleAuthExpired } from './auth-token';
 
 const getApiBaseUrl = () => {
-  const envUrl = process.env.NEXT_PUBLIC_API_URL;
-  if (envUrl && envUrl.trim()) return envUrl;
+  const envUrl = process.env.NEXT_PUBLIC_API_URL?.trim();
+  if (envUrl) {
+    if (typeof window !== 'undefined' && window.location?.origin) {
+      const host = window.location.hostname;
+      const isWindowLocal = host === 'localhost' || host === '127.0.0.1';
+      const isEnvLocal = /localhost|127\.0\.0\.1/i.test(envUrl);
+      if (!isWindowLocal && isEnvLocal) {
+        return window.location.origin;
+      }
+    }
+    return envUrl;
+  }
   if (typeof window !== 'undefined' && window.location?.origin) return window.location.origin;
   return 'http://localhost:8000';
 };

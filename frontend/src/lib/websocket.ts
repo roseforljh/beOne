@@ -44,10 +44,16 @@ class WebSocketClient {
     this.setConnectionState('connecting');
 
     // 优先使用环境变量，否则使用当前页面域名
-    const apiBaseUrl = process.env.NEXT_PUBLIC_API_URL || 
-      (typeof window !== 'undefined' ? window.location.origin : 'http://localhost:8000');
+    const envApi = process.env.NEXT_PUBLIC_API_URL?.trim();
+    const browserOrigin = typeof window !== 'undefined' ? window.location.origin : 'http://localhost:8000';
+    const isBrowserLocal = typeof window !== 'undefined' && /localhost|127\.0\.0\.1/i.test(window.location.hostname);
+    const isEnvApiLocal = !!envApi && /localhost|127\.0\.0\.1/i.test(envApi);
+    const apiBaseUrl = envApi && !(isEnvApiLocal && !isBrowserLocal) ? envApi : browserOrigin;
+
     const derivedWsBaseUrl = apiBaseUrl.replace(/^http:/i, 'ws:').replace(/^https:/i, 'wss:');
-    const wsUrl = process.env.NEXT_PUBLIC_WS_URL || derivedWsBaseUrl;
+    const envWs = process.env.NEXT_PUBLIC_WS_URL?.trim();
+    const isEnvWsLocal = !!envWs && /localhost|127\.0\.0\.1/i.test(envWs);
+    const wsUrl = envWs && !(isEnvWsLocal && !isBrowserLocal) ? envWs : derivedWsBaseUrl;
     this.ws = new WebSocket(`${wsUrl}/ws/${this.clientId}?token=${token}`);
 
     this.ws.onopen = () => {
