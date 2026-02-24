@@ -128,8 +128,11 @@ export default function SettingsPage() {
       setUser(updatedUser);
       toast.success('个人资料已更新');
       setProfileDialogOpen(false);
-    } catch (error: any) {
-      toast.error(error?.response?.data?.detail || '更新失败');
+    } catch (error: unknown) {
+      const message = (typeof error === 'object' && error && 'response' in error)
+        ? ((error as { response?: { data?: { detail?: string } } }).response?.data?.detail || '更新失败')
+        : '更新失败';
+      toast.error(message);
     }
   };
 
@@ -153,8 +156,11 @@ export default function SettingsPage() {
       setCurrentPassword('');
       setNewPassword('');
       setConfirmPassword('');
-    } catch (error: any) {
-      toast.error(error?.response?.data?.detail || '修改失败');
+    } catch (error: unknown) {
+      const message = (typeof error === 'object' && error && 'response' in error)
+        ? ((error as { response?: { data?: { detail?: string } } }).response?.data?.detail || '修改失败')
+        : '修改失败';
+      toast.error(message);
     }
   };
 

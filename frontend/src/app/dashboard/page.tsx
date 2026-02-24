@@ -13,7 +13,7 @@ import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigge
 import { ConversationSidebar } from '@/components/ConversationSidebar';
 
 async function downloadWithPicker(blobPromise: () => Promise<Blob>, filename?: string) {
-  const picker = (window as any)?.showSaveFilePicker;
+  const picker = (window as Window & { showSaveFilePicker?: (options?: unknown) => Promise<{ createWritable: () => Promise<{ write: (data: Blob) => Promise<void>; close: () => Promise<void> }> }> })?.showSaveFilePicker;
   if (typeof picker === 'function') {
     try {
       const name = filename || 'download';
@@ -34,8 +34,9 @@ async function downloadWithPicker(blobPromise: () => Promise<Blob>, filename?: s
       await writable.write(blob);
       await writable.close();
       return;
-    } catch (e: any) {
-      if (e?.name === 'AbortError') return;
+    } catch (e) {
+      const errorName = e instanceof DOMException ? e.name : '';
+      if (errorName === 'AbortError') return;
       console.error('showSaveFilePicker failed, fallback to default download:', e);
     }
   }
@@ -350,7 +351,7 @@ export default function ChatPage() {
                         </div>
                       )}
                       <div className={cn(
-                        "relative px-4 py-3 text-sm overflow-hidden",
+                        "relative px-4 py-3 text-sm overflow-y-auto max-h-[40vh]",
                         isMe 
                           ? "bg-gradient-to-br from-indigo-600 to-violet-600 text-white rounded-2xl rounded-tr-sm font-medium shadow-lg shadow-indigo-900/20 border border-indigo-500/20" 
                           : "bg-card border border-border text-card-foreground rounded-2xl rounded-tl-sm shadow-sm"

@@ -54,35 +54,33 @@ services:
       timeout: 20s
       retries: 3
 
-  # Backend API (FastAPI)
-  backend:
+  # Go Core API
+  go-core:
     build:
-      context: ./backend
+      context: ./go-core
       dockerfile: Dockerfile
-    container_name: synchub-backend
+    container_name: synchub-go-core
     restart: unless-stopped
-    env_file:
-      - ./backend/.env
     environment:
-      DATABASE_URL: postgresql+asyncpg://synchub:synchub123@postgres:5432/synchub
-      REDIS_URL: redis://redis:6379/0
+      GO_CORE_PORT: "8080"
+      DATABASE_URL: postgres://synchub:synchub123@postgres:5432/synchub?sslmode=disable
+      REDIS_ADDR: redis:6379
       MINIO_ENDPOINT: minio:9000
       MINIO_ACCESS_KEY: minioadmin
       MINIO_SECRET_KEY: minioadmin
       MINIO_BUCKET: synchub
-      MINIO_SECURE: "False"
-      DEBUG: "True"
+      MINIO_SECURE: "false"
+      JWT_SECRET: dev-jwt-secret-change-me
+      JWT_TTL_MINUTES: "10080"
     volumes:
-      - ./backend:/app
       - uploads_data:/app/uploads
     ports:
-      - "8000:8000"
+      - "8080:8080"
     depends_on:
       postgres:
         condition: service_healthy
       redis:
         condition: service_healthy
-    command: uvicorn app.main:app --host 0.0.0.0 --port 8000 --reload
 
   # Web Frontend (Nginx serving Static Export)
   frontend:
@@ -94,7 +92,7 @@ services:
     ports:
       - "3000:80"
     depends_on:
-      - backend
+      - go-core
 
 volumes:
   postgres_data:

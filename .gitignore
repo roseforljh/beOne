@@ -5,17 +5,13 @@
 *.swp
 *.swo
 
-# Python / Backend
+# Python
 __pycache__/
 *.py[cod]
 *$py.class
 venv/
 .venv/
 env/
-backend/.env
-backend/.env.development
-backend/uploads/*
-!backend/uploads/.gitkeep
 
 # Node / Frontend
 node_modules/
@@ -28,19 +24,5 @@ dist/
 frontend/.env.local
 frontend/.env
 
-# Android
-.gradle/
-local.properties
-.idea/caches/
-.idea/libraries/
-.idea/modules/
-.idea/workspace.xml
-.idea/navEditor.xml
-.idea/assetWizardSettings.xml
-.idea/codeStyles/
-.idea/dictionaries/
-android/app/build/
-android/build/
-*.iml
-*.hprof
-.cxx/
+# Go
+go-core/uploads/

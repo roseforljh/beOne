@@ -27,10 +27,10 @@ jobs:
       fail-fast: false
       matrix:
         include:
-          - name: backend
-            context: ./backend
-            dockerfile: ./backend/Dockerfile
-            image_suffix: backend
+          - name: go-core
+            context: ./go-core
+            dockerfile: ./go-core/Dockerfile
+            image_suffix: go-core
           - name: frontend
             context: ./frontend
             dockerfile: ./frontend/Dockerfile

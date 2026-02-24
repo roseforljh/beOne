@@ -116,8 +116,8 @@ export default function GalleryPage() {
         return next.length > 0 && next.every(x => x.status === 'success') ? [] : next;
       });
       fetchImages();
-    } catch (e: any) {
-      setUploadTasks(prev => prev.map(t => t.id === taskId ? { ...t, status: 'error' as UploadStatus, error: e?.message || '上传失败' } : t));
+    } catch {
+      setUploadTasks(prev => prev.map(t => t.id === taskId ? { ...t, status: 'error' as UploadStatus, error: '上传失败' } : t));
     }
   };
 

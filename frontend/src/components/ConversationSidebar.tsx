@@ -5,7 +5,7 @@ import { useConversationStore, Conversation } from '@/lib/store';
 import { Button } from '@/components/ui/button';
 import { ScrollArea } from '@/components/ui/scroll-area';
 import { cn } from '@/lib/utils';
-import { Plus, MessageSquare, Trash2, X, ChevronLeft } from 'lucide-react';
+import { Plus, MessageSquare, Trash2, X } from 'lucide-react';
 import {
   AlertDialog,
   AlertDialogAction,

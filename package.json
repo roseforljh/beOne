@@ -1,24 +1,15 @@
 {
   "name": "beone",
-  "version": "1.0.0",
-  "description": "太极文件传输系统 - 一个以太极为主题的黑白色系文件传输系统",
-  "main": "index.js",
+  "version": "2.0.0",
+  "description": "beone next-gen stack (go-core + next.js)",
   "scripts": {
-    "deploy": "node deploy-simple.js",
-    "start": "node deploy-simple.js",
-    "install:all": "cd backend && npm install && cd ../frontend && npm install",
-    "start:backend": "cd backend && npm start",
-    "start:debug": "cd backend && npm run start:debug",
-    "start:frontend": "cd frontend && npm run dev",
-    "build:frontend": "cd frontend && npm run build"
+    "start:frontend": "npm --prefix frontend run dev",
+    "build:frontend": "npm --prefix frontend run build",
+    "lint:frontend": "npm --prefix frontend run lint",
+    "start:go-core": "go run ./go-core/cmd/server",
+    "compose:up": "docker compose up -d --build",
+    "compose:down": "docker compose down"
   },
-  "keywords": [
-    "file-transfer",
-    "taiji",
-    "upload",
-    "download"
-  ],
-  "author": "",
   "license": "MIT"
 }
 
